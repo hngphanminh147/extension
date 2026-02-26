@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "version": "1.0.0",
+  "name": "Chrome Extension Template",
+  "description": "A base Chrome Extension project using React",
+  "author": {
+    "name": "Me"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Chrome Extension"
+  },
+  "permissions": [
+    "activeTab"
+  ]
+}
