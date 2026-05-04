@@ -1,0 +1,27 @@
+/* Tooltip styles — fully implemented in Step 3 */
+.qt-tooltip {
+  position: absolute;
+  z-index: 9999;
+  max-width: 320px;
+  padding: 10px 14px;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.qt-tooltip--hidden {
+  display: none;
+}
+
+.qt-tooltip__translation {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.qt-tooltip__source {
+  font-size: 12px;
+  opacity: 0.6;
+}

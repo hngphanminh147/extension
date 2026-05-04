@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "version": "1.0.0",
-  "name": "Chrome Extension Template",
-  "description": "A base Chrome Extension project using React",
+  "name": "Quick Translate",
+  "description": "Instant translation via popup, tooltip, and context menu",
   "author": {
     "name": "Me"
   },
@@ -19,9 +19,15 @@
   ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Chrome Extension"
+    "default_title": "Quick Translate"
   },
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "contextMenus",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://suggestqueries.google.com/*",
+    "https://translate.google.com/*"
   ]
 }

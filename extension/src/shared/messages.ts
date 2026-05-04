@@ -1,0 +1,5 @@
+export const MSG = {
+  SUGGEST: 'SUGGEST',
+  TRANSLATE: 'TRANSLATE',
+  CONTEXT_TRANSLATE: 'CONTEXT_TRANSLATE',
+} as const;
