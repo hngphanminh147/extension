@@ -1,0 +1,614 @@
+/* Design tokens from v0.dev globals.css (dark theme) */
+:root {
+  --bg:        #16161f;   /* background */
+  --card:      #1d1d2b;   /* card / output area */
+  --secondary: #252535;   /* secondary surfaces */
+  --input:     #1e1e2e;   /* input bg */
+  --border:    #31314a;   /* borders */
+  --fg:        #f0f0f5;   /* foreground text */
+  --fg-muted:  #8888a8;   /* muted text */
+  --primary:   #6b8fff;   /* primary blue */
+  --primary-fg:#ffffff;
+  --success:   #4cbb8a;   /* copy ✓ */
+  --error:     #e05555;   /* destructive */
+  --radius:    10px;
+}
+
+/* ── Reset ───────────────────────────────────────────────── */
+.qt-popup *,
+.qt-popup *::before,
+.qt-popup *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Popup shell ─────────────────────────────────────────── */
+.qt-popup {
+  width: 360px;
+  max-height: 580px;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.qt-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qt-header__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.qt-header__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+
+/* ── Language pair ───────────────────────────────────────── */
+.qt-lang-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qt-lang-btn {
+  flex: 1;
+  height: 34px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg-muted);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.qt-swap-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--fg-muted);
+  cursor: default;
+  opacity: 0.4;
+  border-radius: 6px;
+}
+
+/* ── Input area ──────────────────────────────────────────── */
+.qt-input-wrap {
+  position: relative;
+}
+
+.qt-search {
+  display: flex;
+  align-items: center;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s;
+}
+
+.qt-search:focus-within {
+  border-color: var(--primary);
+}
+
+.qt-search__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 9px 10px;
+  color: var(--fg);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  min-width: 0;
+}
+
+.qt-search__input::placeholder {
+  color: var(--fg-muted);
+}
+
+.qt-search__btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  border-radius: 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0;
+}
+
+.qt-search__btn:hover {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+/* ── Suggestions dropdown ────────────────────────────────── */
+.qt-suggestions {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  list-style: none;
+  z-index: 20;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 4px 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.qt-suggestions__item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.qt-suggestions__item:hover {
+  background: var(--secondary);
+}
+
+/* ── Output area ─────────────────────────────────────────── */
+.qt-output {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  min-height: 90px;
+  transition: border-color 0.2s, background 0.2s;
+  overflow: hidden;
+}
+
+.qt-output--idle,
+.qt-output--loading {
+  background: var(--secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.qt-output--error {
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  border-color: color-mix(in srgb, var(--error) 30%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.qt-output--success {
+  background: var(--card);
+}
+
+.qt-output__placeholder {
+  font-size: 13px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+/* ── Spinner ─────────────────────────────────────────────── */
+.qt-spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.qt-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: qt-spin 0.7s linear infinite;
+}
+
+@keyframes qt-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error state ─────────────────────────────────────────── */
+.qt-error-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--error);
+  font-size: 13px;
+  text-align: center;
+}
+
+.qt-retry-btn {
+  margin-top: 2px;
+  padding: 4px 14px;
+  border: 1px solid color-mix(in srgb, var(--error) 40%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--error);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.qt-retry-btn:hover {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+}
+
+/* ── Word card ───────────────────────────────────────────── */
+.qt-word-card {
+  /* no padding here — header and tab-body carry their own */
+}
+
+.qt-word-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.qt-word-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.qt-word-card__translation {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.qt-word-card__phonetic {
+  font-size: 13px;
+  color: var(--primary);
+}
+
+/* ── Tab strip ───────────────────────────────────────────── */
+.qt-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.qt-tab {
+  flex: 1;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.qt-tab:hover {
+  color: var(--fg);
+}
+
+.qt-tab--active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.qt-tab__count {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: 3px;
+}
+
+/* ── Tab body ────────────────────────────────────────────── */
+.qt-tab-body {
+  padding: 12px 14px;
+  min-height: 200px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.qt-tab-empty {
+  color: var(--fg-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ── Sense blocks (shared across tabs) ──────────────────── */
+.qt-sense {
+  margin-bottom: 12px;
+}
+
+.qt-sense__pos {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4cbb8a;
+  background: color-mix(in srgb, #4cbb8a 12%, transparent);
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+/* Translate tab — gloss list */
+.qt-gloss-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qt-gloss-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
+.qt-gloss-item__target {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.4;
+}
+
+.qt-gloss-item__backs {
+  font-size: 11px;
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+/* ── Definition tab ──────────────────────────────────────── */
+.qt-def-item {
+  margin-bottom: 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
+.qt-def-item__num {
+  color: var(--fg-muted);
+  font-size: 12px;
+  margin-right: 3px;
+}
+
+.qt-def-item__text {
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.qt-def-item__ex {
+  color: color-mix(in srgb, var(--fg-muted) 80%, transparent);
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 3px;
+}
+
+.qt-def-item__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.qt-def-label {
+  font-size: 10px;
+  color: #f5a623;
+  border: 1px solid rgba(245, 166, 35, 0.3);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* ── Examples tab ────────────────────────────────────────── */
+.qt-examples {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qt-example-item {
+  font-size: 13px;
+  color: var(--fg);
+  line-height: 1.5;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
+/* ── Synonyms tab ────────────────────────────────────────── */
+
+/* One meaning-sense block — groups clusters sharing the same senseId */
+.qt-syn-sense-block {
+  margin-bottom: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.qt-syn-sense-block:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+/* Definition heading — shown above each sense group as semantic context */
+.qt-syn-sense {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.qt-syn-cluster {
+  margin-bottom: 6px;
+}
+
+/* Label flows as the first item inside .qt-chips so the whole row wraps together */
+.qt-syn-label {
+  font-size: 10px;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+/* ── Chips (synonyms, translate) ─────────────────────────── */
+.qt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.qt-chip {
+  font-size: 12px;
+  padding: 3px 10px;
+  background: var(--secondary);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+/* ── Sentence result ─────────────────────────────────────── */
+.qt-sentence {
+  padding: 14px;
+}
+
+.qt-sentence__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.qt-sentence__translated {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+.qt-sentence__source {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+/* ── Copy button ─────────────────────────────────────────── */
+.qt-copy-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.qt-copy-btn:hover {
+  background: var(--border);
+  color: var(--fg);
+}
+
+.qt-copy-btn svg[data-lucide="check"] {
+  color: var(--success);
+}
+
+/* ── Auto-translate row ──────────────────────────────────── */
+.qt-auto-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--border);
+}
+
+.qt-auto-row__label {
+  font-size: 13px;
+  color: var(--fg-muted);
+  user-select: none;
+}
+
+/* Native checkbox styled as a switch */
+.qt-switch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: not-allowed;
+  opacity: 0.45;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.qt-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  transition: transform 0.2s;
+}
+
+.qt-switch:checked::before {
+  transform: translateX(16px);
+  background: var(--primary);
+}
+
+.qt-switch:checked {
+  background: color-mix(in srgb, var(--primary) 25%, transparent);
+  border-color: var(--primary);
+}

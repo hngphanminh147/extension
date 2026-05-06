@@ -33,13 +33,13 @@ async function fetchTranslate(text: string): Promise<TranslateResult> {
   url.searchParams.set('ie', 'UTF-8');
   url.searchParams.set('oe', 'UTF-8');
   url.searchParams.set('q', text);
-  // dt=t is always included; word-only params add richer data
+  // dt params match observed Google web calls that usually return the 14-slot payload.
+  // indices per .docs/request-response-formats.md; positions may drift if dt set changes
   url.searchParams.append('dt', 't');
   if (single) {
-    url.searchParams.append('dt', 'md');
-    url.searchParams.append('dt', 'ex');
-    url.searchParams.append('dt', 'ss');
-    url.searchParams.append('dt', 'bd');
+    for (const dt of ['bd', 'ex', 'ld', 'md', 'qca', 'rw', 'rm', 'ss', 'at']) {
+      url.searchParams.append('dt', dt);
+    }
   }
 
   const res = await fetch(url.toString());
