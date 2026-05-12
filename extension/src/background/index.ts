@@ -56,8 +56,11 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Stub — fully wired in Step 4
-chrome.contextMenus.onClicked.addListener((_info, _tab) => {});
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'qt-translate' && info.selectionText && tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { type: MSG.CONTEXT_TRANSLATE, text: info.selectionText });
+  }
+});
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === MSG.SUGGEST) {

@@ -1,4 +1,28 @@
-/* Tooltip styles — fully implemented in Step 3 */
+/* All class names are prefixed with qt- to avoid collisions with host page styles */
+
+.qt-trigger {
+  position: absolute;
+  z-index: 9999;
+  padding: 4px 10px;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qt-trigger--hidden {
+  display: none;
+}
+
+.qt-trigger:hover {
+  background: #313244;
+}
+
 .qt-tooltip {
   position: absolute;
   z-index: 9999;
@@ -10,18 +34,93 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   font-size: 14px;
   line-height: 1.5;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .qt-tooltip--hidden {
   display: none;
 }
 
+.qt-tooltip__close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #cdd6f4;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 0 2px;
+}
+
+.qt-tooltip__close:hover {
+  opacity: 1;
+}
+
 .qt-tooltip__translation {
   font-weight: 600;
   margin-bottom: 4px;
+  padding-right: 20px; /* avoid overlap with close button */
 }
 
 .qt-tooltip__source {
   font-size: 12px;
   opacity: 0.6;
+}
+
+.qt-tooltip__loading {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.qt-tooltip__error {
+  font-size: 12px;
+  color: #f38ba8;
+  padding-right: 20px;
+}
+
+.qt-tooltip__langs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(205, 214, 244, 0.12);
+}
+
+.qt-tooltip__lang-select {
+  background: rgba(205, 214, 244, 0.08);
+  color: #cdd6f4;
+  border: 1px solid rgba(205, 214, 244, 0.2);
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 2px 4px;
+  cursor: pointer;
+  max-width: 110px;
+}
+
+.qt-tooltip__lang-select:hover {
+  border-color: rgba(205, 214, 244, 0.4);
+}
+
+.qt-tooltip__lang-swap {
+  background: none;
+  border: none;
+  color: #cdd6f4;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 0 2px;
+}
+
+.qt-tooltip__lang-swap:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.qt-tooltip__lang-swap:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
 }
