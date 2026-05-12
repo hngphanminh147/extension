@@ -7,6 +7,7 @@ import type {
   TranslationGloss,
   DefinitionGroup,
   DefinitionItem,
+  ExampleItem,
   SynonymGroup,
   SynonymCluster,
   SenseBlock,
@@ -115,10 +116,11 @@ function parseDefinitions(
     const pos = typeof posGroup[0] === 'string' ? posGroup[0] : '';
     const rawItems = Array.isArray(posGroup[1]) ? (posGroup[1] as unknown[][]) : [];
     const items: DefinitionItem[] = rawItems.map((item) => {
-      const text = typeof item[0] === 'string' ? item[0] : '';
+      const text    = typeof item[0] === 'string' ? item[0] : '';
       const senseId = typeof item[1] === 'string' ? item[1] : null;
       if (senseId && text && !lookup.has(senseId)) lookup.set(senseId, text);
       return {
+        senseId,                                                          // preserved for cross-tab linking
         text,
         example: typeof item[2] === 'string' ? stripTags(item[2]) : null,
         labels: extractLabels(item[3]),
@@ -175,23 +177,28 @@ function parseSynonyms(rawBlock: unknown[][], defLookup: Map<string, string>): S
 }
 
 /**
- * Parses `data[13]` (dt=ex) into a deduplicated list of plain-text example sentences —
+ * Parses `data[13]` (dt=ex) into a deduplicated list of {@link ExampleItem}s —
  * Variants A and B (guarded individually per updated spec).
  *
  * Raw format: `[[[html_string, null, null, null, null, senseId], ...]]`
  *
  * HTML tags are stripped and duplicate sentences are discarded.
+ * The `senseId` at `row[5]` is preserved so the UI can group examples by meaning.
  *
  * @param rawBlock - The `data[13]` array from the translate response.
  */
-function parseExamples(rawBlock: unknown[][]): string[] {
+function parseExamples(rawBlock: unknown[][]): ExampleItem[] {
   const rows = Array.isArray(rawBlock[0]) ? (rawBlock[0] as unknown[][]) : [];
   const seen = new Set<string>();
-  const result: string[] = [];
+  const result: ExampleItem[] = [];
   for (const row of rows) {
     if (typeof row[0] === 'string') {
-      const plain = stripTags(row[0]);
-      if (plain && !seen.has(plain)) { seen.add(plain); result.push(plain); }
+      const plain   = stripTags(row[0]);
+      const senseId = typeof row[5] === 'string' ? row[5] : null;
+      if (plain && !seen.has(plain)) {
+        seen.add(plain);
+        result.push({ text: plain, senseId });
+      }
     }
   }
   return result;

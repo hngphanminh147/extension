@@ -7,7 +7,7 @@ interface Props {
   onDismissSuggestions: () => void;
 }
 
-export default function SearchInput({ value, onChange, onSubmit, onDismissSuggestions }: Props) {
+export default function SearchInput({ value, onChange, onSubmit, onDismissSuggestions }: Readonly<Props>) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();

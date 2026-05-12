@@ -6,7 +6,7 @@ interface Props {
   result: SentenceTranslation;
 }
 
-export default function SentenceResult({ result }: Props) {
+export default function SentenceResult({ result }: Readonly<Props>) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {

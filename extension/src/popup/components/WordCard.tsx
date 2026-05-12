@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
-import type { WordTranslation, TranslationGroup, DefinitionGroup, SynonymGroup, SenseBlock } from '../../shared/types';
+import type { WordTranslation, TranslationGroup, DefinitionGroup, ExampleItem, SynonymGroup, SenseBlock } from '../../shared/types';
 
 type TabId = 'translate' | 'definition' | 'examples' | 'synonyms';
 
@@ -16,7 +16,7 @@ interface Props {
 
 // --- Tab panel sub-components ---
 
-function TranslateTab({ groups }: { groups: TranslationGroup[] }) {
+function TranslateTab({ groups }: Readonly<{ groups: TranslationGroup[] }>) {
   if (groups.length === 0) {
     return <p className="qt-tab-empty">No translations available.</p>;
   }
@@ -43,52 +43,100 @@ function TranslateTab({ groups }: { groups: TranslationGroup[] }) {
   );
 }
 
-function DefinitionTab({ groups }: { groups: DefinitionGroup[] }) {
+function DefinitionTab({ groups, examples }: Readonly<{ groups: DefinitionGroup[]; examples: ExampleItem[] }>) {
   if (groups.length === 0) {
     return <p className="qt-tab-empty">No definitions available.</p>;
   }
+
+  // Build senseId → corpus example texts map for inline display
+  const corpusById = new Map<string, string[]>();
+  for (const ex of examples) {
+    if (ex.senseId) {
+      if (!corpusById.has(ex.senseId)) corpusById.set(ex.senseId, []);
+      corpusById.get(ex.senseId)!.push(ex.text);
+    }
+  }
+
   return (
     <>
       {groups.map((group) => (
         <div key={group.pos} className="qt-sense">
           <span className="qt-sense__pos">{group.pos}</span>
-          {group.items.map((item, i) => (
-            <div key={i} className="qt-def-item">
-              <p className="qt-def-item__text">
-                <span className="qt-def-item__num">{i + 1}.</span> {item.text}
-              </p>
-              {item.example && (
-                <p className="qt-def-item__ex">"{item.example}"</p>
-              )}
-              {item.labels.length > 0 && (
-                <div className="qt-def-item__labels">
-                  {item.labels.map((label) => (
-                    <span key={label} className="qt-def-label">{label}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+          {group.items.map((item, i) => {
+            const corpusExamples = item.senseId ? (corpusById.get(item.senseId) ?? []).slice(0, 3) : [];
+            return (
+              <div key={i} className="qt-def-item">
+                <p className="qt-def-item__text">{item.text}</p>
+                {item.example && (
+                  <p className="qt-def-item__ex">"{item.example}"</p>
+                )}
+                {item.labels.length > 0 && (
+                  <div className="qt-def-item__labels">
+                    {item.labels.map((label) => (
+                      <span key={label} className="qt-def-label">{label}</span>
+                    ))}
+                  </div>
+                )}
+                {corpusExamples.length > 0 && (
+                  <ul className="qt-def-corpus-examples">
+                    {corpusExamples.map((text, j) => (
+                      <li key={j} className="qt-def-corpus-ex">{text}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       ))}
     </>
   );
 }
 
-function ExamplesTab({ examples }: { examples: string[] }) {
+function ExamplesTab({ examples, definitions }: Readonly<{ examples: ExampleItem[]; definitions: DefinitionGroup[] }>) {
   if (examples.length === 0) {
     return <p className="qt-tab-empty">No examples available.</p>;
   }
+
+  // Build senseId → definition text lookup
+  const defById = new Map<string, string>();
+  for (const g of definitions)
+    for (const item of g.items)
+      if (item.senseId && !defById.has(item.senseId))
+        defById.set(item.senseId, item.text);
+
+  // Group examples by senseId, preserving insertion order
+  const groups: Array<{ senseId: string | null; texts: string[] }> = [];
+  const seen = new Map<string | null, string[]>();
+  for (const ex of examples) {
+    const key = ex.senseId ?? null;
+    if (!seen.has(key)) {
+      const texts: string[] = [];
+      seen.set(key, texts);
+      groups.push({ senseId: key, texts });
+    }
+    seen.get(key)!.push(ex.text);
+  }
+
   return (
-    <ul className="qt-examples">
-      {examples.map((ex, i) => (
-        <li key={i} className="qt-example-item">{ex}</li>
+    <>
+      {groups.map((group, gi) => (
+        <div key={gi} className="qt-syn-sense-block">
+          {group.senseId && defById.has(group.senseId) && (
+            <p className="qt-syn-sense">{defById.get(group.senseId)}</p>
+          )}
+          <ul className="qt-examples">
+            {group.texts.map((text, i) => (
+              <li key={i} className="qt-example-item">{text}</li>
+            ))}
+          </ul>
+        </div>
       ))}
-    </ul>
+    </>
   );
 }
 
-function SynonymSenseBlock({ sense }: { sense: SenseBlock }) {
+function SynonymSenseBlock({ sense }: Readonly<{ sense: SenseBlock }>) {
   return (
     <div className="qt-syn-sense-block">
       {sense.definition && (
@@ -110,7 +158,7 @@ function SynonymSenseBlock({ sense }: { sense: SenseBlock }) {
   );
 }
 
-function SynonymsTab({ groups }: { groups: SynonymGroup[] }) {
+function SynonymsTab({ groups }: Readonly<{ groups: SynonymGroup[] }>) {
   if (groups.length === 0) {
     return <p className="qt-tab-empty">No synonyms available.</p>;
   }
@@ -130,7 +178,7 @@ function SynonymsTab({ groups }: { groups: SynonymGroup[] }) {
 
 // --- Main WordCard ---
 
-export default function WordCard({ result }: Props) {
+export default function WordCard({ result }: Readonly<Props>) {
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (result.translations.length > 0) return 'translate';
     if (result.definitions.length > 0) return 'definition';
@@ -202,8 +250,8 @@ export default function WordCard({ result }: Props) {
       {/* Tab body */}
       <div className="qt-tab-body" role="tabpanel">
         {activeTab === 'translate'  && <TranslateTab  groups={result.translations} />}
-        {activeTab === 'definition' && <DefinitionTab groups={result.definitions} />}
-        {activeTab === 'examples'   && <ExamplesTab   examples={result.examples} />}
+        {activeTab === 'definition' && <DefinitionTab groups={result.definitions} examples={result.examples} />}
+        {activeTab === 'examples'   && <ExamplesTab   examples={result.examples} definitions={result.definitions} />}
         {activeTab === 'synonyms'   && <SynonymsTab   groups={result.synonyms} />}
       </div>
     </div>

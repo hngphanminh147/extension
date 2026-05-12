@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Globe, ArrowRightLeft, AlertCircle } from 'lucide-react';
-import { DEFAULT_CONFIG, type TranslateResult, type SuggestResult, type MessageResponse } from './shared/types';
+import { DEFAULT_CONFIG, LANGUAGES, type TranslateResult, type SuggestResult, type MessageResponse } from './shared/types';
 import { MSG } from './shared/messages';
 import SearchInput from './popup/components/SearchInput';
 import SuggestionList from './popup/components/SuggestionList';
@@ -10,9 +10,9 @@ import './popup/popup.css';
 
 type OutputState = 'idle' | 'loading' | 'success' | 'error';
 
-function sendMsg<T>(type: string, text: string): Promise<MessageResponse<T>> {
+function sendMsg<T>(type: string, text: string, extra?: Record<string, string>): Promise<MessageResponse<T>> {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type, text }, (res: MessageResponse<T>) => resolve(res));
+    chrome.runtime.sendMessage({ type, text, ...extra }, (res: MessageResponse<T>) => resolve(res));
   });
 }
 
@@ -22,7 +22,20 @@ function App() {
   const [result, setResult] = useState<TranslateResult | null>(null);
   const [outputState, setOutputState] = useState<OutputState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [sourceLang, setSourceLang] = useState(DEFAULT_CONFIG.sourceLang);
+  const [targetLang, setTargetLang] = useState(DEFAULT_CONFIG.targetLang);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSubmitRef = useRef<{ text: string; sl: string; tl: string } | null>(null);
+
+  useEffect(() => {
+    chrome.storage.local.get(
+      { sourceLang: DEFAULT_CONFIG.sourceLang, targetLang: DEFAULT_CONFIG.targetLang },
+      (stored) => {
+        setSourceLang(stored.sourceLang as string);
+        setTargetLang(stored.targetLang as string);
+      },
+    );
+  }, []);
 
   // Debounce only fetches suggestions — translation is explicit (Enter / search icon)
   useEffect(() => {
@@ -38,7 +51,7 @@ function App() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
-  const translate = useCallback(async (text: string) => {
+  const translate = useCallback(async (text: string, sl = sourceLang, tl = targetLang) => {
     if (!text.trim()) {
       setResult(null);
       setOutputState('idle');
@@ -46,21 +59,26 @@ function App() {
     }
     setOutputState('loading');
     setErrorMsg('');
-    const res = await sendMsg<TranslateResult>(MSG.TRANSLATE, text);
+    const res = await sendMsg<TranslateResult>(MSG.TRANSLATE, text, { sl, tl });
     if (res.ok && res.data) {
       setResult(res.data);
       setOutputState('success');
     } else {
+      lastSubmitRef.current = null; // allow retry via Enter after an error
       setErrorMsg(res.error ?? 'Translation failed');
       setOutputState('error');
     }
-  }, []);
+  }, [sourceLang, targetLang]);
 
   const handleSubmit = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSuggestions([]);
+    const trimmed = query.trim();
+    const last = lastSubmitRef.current;
+    if (last?.text === trimmed && last.sl === sourceLang && last.tl === targetLang) return;
+    lastSubmitRef.current = { text: trimmed, sl: sourceLang, tl: targetLang };
     translate(query);
-  }, [query, translate]);
+  }, [query, sourceLang, targetLang, translate]);
 
   const handleSelect = (suggestion: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -71,6 +89,47 @@ function App() {
 
   const handleRetry = () => translate(query);
 
+  const handleSourceLang = (lang: string) => {
+    if (lang === targetLang) {
+      // Conflict: swap. If source was 'auto', fall back to a safe target instead.
+      let newTarget = sourceLang;
+      if (sourceLang === 'auto') {
+        newTarget = lang === DEFAULT_CONFIG.sourceLang ? DEFAULT_CONFIG.targetLang : DEFAULT_CONFIG.sourceLang;
+      }
+      setSourceLang(lang);
+      setTargetLang(newTarget);
+      chrome.storage.local.set({ sourceLang: lang, targetLang: newTarget });
+      if (result) translate(query, lang, newTarget);
+    } else {
+      setSourceLang(lang);
+      chrome.storage.local.set({ sourceLang: lang });
+      if (result) translate(query, lang, targetLang);
+    }
+  };
+
+  const handleTargetLang = (lang: string) => {
+    if (lang === sourceLang) {
+      // Conflict: swap ('auto' is excluded from target options so sourceLang is always a real code here)
+      setSourceLang(targetLang);
+      setTargetLang(lang);
+      chrome.storage.local.set({ sourceLang: targetLang, targetLang: lang });
+      if (result) translate(query, targetLang, lang);
+    } else {
+      setTargetLang(lang);
+      chrome.storage.local.set({ targetLang: lang });
+      if (result) translate(query, sourceLang, lang);
+    }
+  };
+
+  const handleSwap = () => {
+    const newSource = targetLang;
+    const newTarget = sourceLang;
+    setSourceLang(newSource);
+    setTargetLang(newTarget);
+    chrome.storage.local.set({ sourceLang: newSource, targetLang: newTarget });
+    if (result) translate(query, newSource, newTarget);
+  };
+
   return (
     <div className="qt-popup">
       {/* Header */}
@@ -78,16 +137,41 @@ function App() {
         <div className="qt-header__icon">
           <Globe size={16} />
         </div>
-        <h1 className="qt-header__title">Quick Translate</h1>
+        <h1 className="qt-header__title">Extension</h1>
       </header>
 
-      {/* Language pair — static stub, selection coming in a future release */}
-      <div className="qt-lang-pair" title="Language selection — coming soon">
-        <button className="qt-lang-btn" disabled>{DEFAULT_CONFIG.sourceLang.toUpperCase()}</button>
-        <button className="qt-swap-btn" disabled aria-label="Swap languages">
+      {/* Language pair */}
+      <div className="qt-lang-pair">
+        <select
+          className="qt-lang-select"
+          value={sourceLang}
+          onChange={(e) => handleSourceLang(e.target.value)}
+          aria-label="Source language"
+        >
+          {Object.entries(LANGUAGES).map(([code, name]) => (
+            <option key={code} value={code}>{name}</option>
+          ))}
+        </select>
+        <button
+          className="qt-swap-btn"
+          onClick={handleSwap}
+          disabled={sourceLang === 'auto'}
+          aria-label="Swap languages"
+        >
           <ArrowRightLeft size={14} />
         </button>
-        <button className="qt-lang-btn" disabled>{DEFAULT_CONFIG.targetLang.toUpperCase()}</button>
+        <select
+          className="qt-lang-select"
+          value={targetLang}
+          onChange={(e) => handleTargetLang(e.target.value)}
+          aria-label="Target language"
+        >
+          {Object.entries(LANGUAGES)
+            .filter(([code]) => code !== 'auto')
+            .map(([code, name]) => (
+              <option key={code} value={code}>{name}</option>
+            ))}
+        </select>
       </div>
 
       {/* Input */}

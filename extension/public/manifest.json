@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "version": "1.0.0",
-  "name": "Quick Translate",
+  "name": "Extension",
   "description": "Instant translation via popup, tooltip, and context menu",
   "author": {
     "name": "Me"
@@ -19,7 +19,7 @@
   ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Quick Translate"
+    "default_title": "Extension"
   },
   "permissions": [
     "activeTab",

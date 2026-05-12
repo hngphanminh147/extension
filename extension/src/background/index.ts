@@ -23,12 +23,12 @@ async function fetchSuggest(text: string): Promise<SuggestResult> {
   return parseSuggestResponse(data);
 }
 
-async function fetchTranslate(text: string): Promise<TranslateResult> {
+async function fetchTranslate(text: string, sl?: string, tl?: string): Promise<TranslateResult> {
   const single = isSingleWord(text);
   const url = new URL('https://translate.google.com/translate_a/single');
   url.searchParams.set('client', 'gtx');
-  url.searchParams.set('sl', config.sourceLang);
-  url.searchParams.set('tl', config.targetLang);
+  url.searchParams.set('sl', sl ?? config.sourceLang);
+  url.searchParams.set('tl', tl ?? config.targetLang);
   url.searchParams.set('hl', config.uiLang);
   url.searchParams.set('ie', 'UTF-8');
   url.searchParams.set('oe', 'UTF-8');
@@ -69,7 +69,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
   if (msg.type === MSG.TRANSLATE) {
-    fetchTranslate(msg.text as string)
+    fetchTranslate(msg.text as string, msg.sl as string | undefined, msg.tl as string | undefined)
       .then((data) => sendResponse({ ok: true, data } satisfies MessageResponse<TranslateResult>))
       .catch((err: unknown) =>
         sendResponse({ ok: false, error: String(err) } satisfies MessageResponse<TranslateResult>),

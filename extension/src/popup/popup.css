@@ -10,6 +10,7 @@
   --primary:   #6b8fff;   /* primary blue */
   --primary-fg:#ffffff;
   --success:   #4cbb8a;   /* copy ✓ */
+  --warning:   #f5a623;   /* label / tag */
   --error:     #e05555;   /* destructive */
   --radius:    10px;
 }
@@ -37,6 +38,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 14px;
+  border-radius: var(--radius);
 }
 
 /* ── Header ──────────────────────────────────────────────── */
@@ -72,18 +74,36 @@
   gap: 6px;
 }
 
-.qt-lang-btn {
+.qt-lang-select {
   flex: 1;
   height: 34px;
   background: var(--input);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--fg-muted);
+  border-radius: var(--radius);
+  color: var(--fg);
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
-  cursor: default;
-  opacity: 0.6;
+  cursor: pointer;
+  padding: 0 8px;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+
+.qt-lang-select:hover {
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+}
+
+.qt-lang-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.qt-lang-select option {
+  background: var(--card);
+  color: var(--fg);
 }
 
 .qt-swap-btn {
@@ -96,9 +116,19 @@
   background: transparent;
   border: none;
   color: var(--fg-muted);
-  cursor: default;
-  opacity: 0.4;
+  cursor: pointer;
   border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.qt-swap-btn:hover:not(:disabled) {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.qt-swap-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 /* ── Input area ──────────────────────────────────────────── */
@@ -175,13 +205,23 @@
 }
 
 .qt-suggestions__item {
+  list-style: none;
+}
+
+.qt-suggestions__item button {
+  display: block;
+  width: 100%;
   padding: 8px 12px;
   cursor: pointer;
   color: var(--fg);
   font-size: 13px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
 }
 
-.qt-suggestions__item:hover {
+.qt-suggestions__item button:hover {
   background: var(--secondary);
 }
 
@@ -273,10 +313,7 @@
 }
 
 /* ── Word card ───────────────────────────────────────────── */
-.qt-word-card {
-  /* no padding here — header and tab-body carry their own */
-}
-
+/* no padding on .qt-word-card — header and tab-body carry their own */
 .qt-word-card__header {
   display: flex;
   align-items: flex-start;
@@ -366,8 +403,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #4cbb8a;
-  background: color-mix(in srgb, #4cbb8a 12%, transparent);
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
   padding: 2px 7px;
   border-radius: 4px;
   margin-bottom: 6px;
@@ -408,12 +445,6 @@
   border-left: 2px solid var(--border);
 }
 
-.qt-def-item__num {
-  color: var(--fg-muted);
-  font-size: 12px;
-  margin-right: 3px;
-}
-
 .qt-def-item__text {
   color: var(--fg);
   font-size: 13px;
@@ -436,8 +467,8 @@
 
 .qt-def-label {
   font-size: 10px;
-  color: #f5a623;
-  border: 1px solid rgba(245, 166, 35, 0.3);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
   border-radius: 4px;
   padding: 1px 5px;
 }
@@ -458,13 +489,32 @@
   border-left: 2px solid var(--border);
 }
 
+/* Corpus examples shown inline below a definition item in the Definition tab */
+.qt-def-corpus-examples {
+  list-style: none;
+  margin: 5px 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.qt-def-corpus-ex {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--fg-muted) 80%, transparent);
+  font-style: italic;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+}
+
 /* ── Synonyms tab ────────────────────────────────────────── */
 
 /* One meaning-sense block — groups clusters sharing the same senseId */
 .qt-syn-sense-block {
   margin-bottom: 14px;
   padding-top: 12px;
+  padding-left: 10px;
   border-top: 1px solid var(--border);
+  border-left: 2px solid var(--border);
 }
 
 .qt-syn-sense-block:first-child {

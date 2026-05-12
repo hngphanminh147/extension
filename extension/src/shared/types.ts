@@ -12,12 +12,40 @@ export const DEFAULT_CONFIG: ExtensionConfig = {
   debounceMs: 300,
 };
 
+/** Supported translation languages. "auto" is only valid as a source language. */
+export const LANGUAGES: Record<string, string> = {
+  auto: 'Auto-detect',
+  en:   'English',
+  vi:   'Vietnamese',
+  zh:   'Chinese',
+  ja:   'Japanese',
+  ko:   'Korean',
+  fr:   'French',
+  de:   'German',
+  es:   'Spanish',
+  pt:   'Portuguese',
+  ru:   'Russian',
+  ar:   'Arabic',
+  it:   'Italian',
+  th:   'Thai',
+  id:   'Indonesian',
+  nl:   'Dutch',
+  tr:   'Turkish',
+  hi:   'Hindi',
+};
+
 export interface SuggestResult {
   prefix: string;
   suggestions: string[];
 }
 
 // --- Word translation sub-types (one per tab) ---
+
+/** Tab 3 — Examples: a single corpus example sentence linked to a meaning sense (from dt=ex, data[13]) */
+export interface ExampleItem {
+  text: string;
+  senseId: string | null;  // foreign key at row[5]; null when absent
+}
 
 /** Tab 1 — Translate: a single target-language gloss with the source-language back-translations that map to it (from data[1][i][2]) */
 export interface TranslationGloss {
@@ -33,8 +61,9 @@ export interface TranslationGroup {
 
 /** Tab 2 — Definition: a single dictionary entry (from dt=md, data[12]) */
 export interface DefinitionItem {
+  senseId: string | null;  // foreign key linking to data[11] synonyms and data[13] examples
   text: string;
-  example: string | null;  // plain text after stripping HTML tags
+  example: string | null;  // inline example from data[12] itself (plain text)
   labels: string[];        // register / domain labels, e.g. "informal", "Music", "dated"
 }
 
@@ -73,7 +102,7 @@ export interface WordTranslation {
   phonetic: string | null;
   translations: TranslationGroup[];  // Tab 1 — from data[1]  (dt=bd)
   definitions: DefinitionGroup[];    // Tab 2 — from data[12] (dt=md)
-  examples: string[];                // Tab 3 — from data[13] (dt=ex), stripped HTML
+  examples: ExampleItem[];           // Tab 3 — from data[13] (dt=ex), stripped HTML + senseId
   synonyms: SynonymGroup[];          // Tab 4 — from data[11] (dt=ss)
 }
 
@@ -90,6 +119,8 @@ export type TranslateResult = WordTranslation | SentenceTranslation;
 export interface MessageRequest {
   type: string;
   text: string;
+  sl?: string;
+  tl?: string;
 }
 
 export interface ContentMessage {
