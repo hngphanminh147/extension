@@ -24,10 +24,20 @@
   "permissions": [
     "activeTab",
     "contextMenus",
-    "storage"
+    "storage",
+    "offscreen"
   ],
   "host_permissions": [
     "https://suggestqueries.google.com/*",
     "https://translate.google.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["tesseract/*", "lang-data/*"],
+      "matches": ["<all_urls>"]
+    }
   ]
 }

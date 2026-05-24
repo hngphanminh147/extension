@@ -3,6 +3,7 @@ export interface ExtensionConfig {
   targetLang: string;
   uiLang: string;
   debounceMs: number;
+  ocrLang: string;
 }
 
 export const DEFAULT_CONFIG: ExtensionConfig = {
@@ -10,6 +11,13 @@ export const DEFAULT_CONFIG: ExtensionConfig = {
   targetLang: 'vi',
   uiLang: 'en',
   debounceMs: 300,
+  ocrLang: 'eng',
+};
+
+/** Tesseract language codes with bundled .traineddata files in public/lang-data/ */
+export const OCR_LANGUAGES: Record<string, string> = {
+  eng:     'English',
+  chi_sim: 'Chinese (Simplified)',
 };
 
 /** Supported translation languages. "auto" is only valid as a source language. */

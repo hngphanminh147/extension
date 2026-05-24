@@ -1,4 +1,5 @@
 import type { MessageResponse, TranslateResult } from '../shared/types';
+import { initOcrHandlers } from './ocr';
 
 // Keep in sync with shared/messages.ts MSG constants
 const MSG_TRANSLATE = 'TRANSLATE';
@@ -16,8 +17,11 @@ const LANGUAGES: Record<string, string> = {
 
 // ── Language state (loaded from storage, kept in sync with popup) ─────────────
 
-let currentSl = 'en';
-let currentTl = 'vi';
+const DEFAULT_SL = 'en';
+const DEFAULT_TL = 'vi';
+
+let currentSl = DEFAULT_SL;
+let currentTl = DEFAULT_TL;
 
 chrome.storage.local.get({ sourceLang: 'en', targetLang: 'vi' }, (result) => {
   currentSl = result.sourceLang as string;
@@ -83,7 +87,7 @@ function langOptions(selected: string, includeAuto: boolean): string {
 
 function positionElement(el: HTMLElement, rect: DOMRect): void {
   const MARGIN = 8;
-  let top = rect.bottom + window.scrollY + MARGIN;
+  const top = rect.bottom + window.scrollY + MARGIN;
   let left = rect.left + window.scrollX;
 
   const maxLeft = window.scrollX + window.innerWidth - el.offsetWidth - MARGIN;
@@ -154,31 +158,33 @@ function showError(el: HTMLDivElement, message: string): void {
   el.classList.remove('qt-tooltip--hidden');
 }
 
+function applySourceLang(val: string): void {
+  if (val !== currentTl) {
+    currentSl = val;
+    return;
+  }
+  // Conflict: the new source matches the current target — swap.
+  // If old source was 'auto' it can't become the new target, so fall back to a default.
+  const fallback = val === DEFAULT_SL ? DEFAULT_TL : DEFAULT_SL;
+  currentTl = currentSl === 'auto' ? fallback : currentSl;
+  currentSl = val;
+}
+
+function applyTargetLang(val: string): void {
+  // 'auto' is not in target options, so currentSl is always a real code here.
+  if (val === currentSl) {
+    currentSl = currentTl; // swap
+  }
+  currentTl = val;
+}
+
 function onLangChange(e: Event): void {
   const sel = e.target as HTMLSelectElement;
-  const val = sel.value;
-
   if (sel.dataset.role === 'sl') {
-    if (val === currentTl) {
-      // Conflict: swap. If old source was 'auto', pick a safe fallback for the new target.
-      const newTl = currentSl === 'auto'
-        ? (val === 'en' ? 'vi' : 'en')
-        : currentSl;
-      currentSl = val;
-      currentTl = newTl;
-    } else {
-      currentSl = val;
-    }
+    applySourceLang(sel.value);
   } else {
-    if (val === currentSl) {
-      // Conflict: swap ('auto' is not in target options so currentSl is always a real code)
-      currentSl = currentTl;
-      currentTl = val;
-    } else {
-      currentTl = val;
-    }
+    applyTargetLang(sel.value);
   }
-
   chrome.storage.local.set({ sourceLang: currentSl, targetLang: currentTl });
   if (activeText && activeRect) translateAndShow(activeText, activeRect);
 }
@@ -219,6 +225,7 @@ function translateAndShow(text: string, rect: DOMRect): void {
     (response: MessageResponse<TranslateResult>) => {
       if (chrome.runtime.lastError) {
         showError(el, 'Extension error');
+        positionElement(el, rect);
         return;
       }
       if (response?.ok && response.data) {
@@ -226,6 +233,7 @@ function translateAndShow(text: string, rect: DOMRect): void {
       } else {
         showError(el, response?.error ?? 'Translation failed');
       }
+      positionElement(el, rect);
     },
   );
 }
@@ -278,3 +286,7 @@ chrome.runtime.onMessage.addListener((msg) => {
   hideTrigger();
   translateAndShow(text, rect);
 });
+
+// ── OCR ───────────────────────────────────────────────────────────────────────
+
+initOcrHandlers(translateAndShow);

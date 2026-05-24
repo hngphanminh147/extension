@@ -62,7 +62,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === MSG.SUGGEST) {
     fetchSuggest(msg.text as string)
       .then((data) => sendResponse({ ok: true, data } satisfies MessageResponse<SuggestResult>))
@@ -79,4 +79,154 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       );
     return true;
   }
+
+  // ── OCR pipeline ────────────────────────────────────────────────────────────
+
+  if (msg.type === MSG.START_OCR) {
+    handleStartOcr();
+    return;
+  }
+
+  if (msg.type === MSG.SELECTION_DONE) {
+    handleSelectionDone(
+      msg as { type: string; rect: OcrRect; dpr: number; debug: boolean },
+      sender.tab?.id,
+    );
+    return;
+  }
+
+  if (msg.type === MSG.OCR_CANCEL) {
+    cancelOcrJob();
+  }
 });
+
+// ── OCR helpers ──────────────────────────────────────────────────────────────
+
+interface OcrRect { x: number; y: number; w: number; h: number }
+
+let pendingOcrTabId: number | null = null;
+let ocrJobSeq = 0;
+const OCR_TIMEOUT_MS = 120_000;
+
+const OFFSCREEN_URL = 'offscreen.html';
+
+function cancelOcrJob(): void {
+  pendingOcrTabId = null;
+  ocrJobSeq += 1;
+  chrome.runtime.sendMessage({ type: MSG.OCR_ABORT });
+}
+
+async function ensureOffscreenDocument(): Promise<void> {
+  const existing = await chrome.offscreen.hasDocument();
+  if (existing) return;
+  await chrome.offscreen.createDocument({
+    url: OFFSCREEN_URL,
+    reasons: [chrome.offscreen.Reason.DOM_SCRAPING],
+    justification: 'Canvas crop and Tesseract OCR',
+  });
+}
+
+function handleStartOcr(): void {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0]?.id;
+    if (tabId == null) return;
+    chrome.storage.local.get({ ocrDebug: false }, (stored) => {
+      const debug = stored.ocrDebug as boolean;
+      chrome.tabs.sendMessage(tabId, { type: MSG.START_SELECTION, debug });
+    });
+  });
+}
+
+function ocrBgLog(stage: string, startMs: number, data: Record<string, unknown>): void {
+  console.log(`[OCR:${stage}]`, { elapsed: Date.now() - startMs, ...data });
+}
+
+function handleSelectionDone(
+  msg: { type: string; rect: OcrRect; dpr: number; debug: boolean },
+  tabId: number | undefined,
+): void {
+  if (tabId == null) return;
+  pendingOcrTabId = tabId;
+  const jobSeq = ++ocrJobSeq;
+
+  const { rect, dpr, debug } = msg;
+  const startMs = Date.now();
+  let settled = false;
+
+  const finish = (fn: () => void) => {
+    if (settled || pendingOcrTabId !== tabId || jobSeq !== ocrJobSeq) return;
+    settled = true;
+    pendingOcrTabId = null;
+    fn();
+  };
+
+  const timeoutId = setTimeout(() => {
+    finish(() => {
+      cancelOcrJob();
+      chrome.tabs.sendMessage(tabId, { type: MSG.OCR_ERROR, error: 'OCR timed out' });
+    });
+  }, OCR_TIMEOUT_MS);
+
+  chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
+    if (jobSeq !== ocrJobSeq) return;
+
+    if (chrome.runtime.lastError || !dataUrl) {
+      clearTimeout(timeoutId);
+      finish(() => {
+        chrome.tabs.sendMessage(tabId, {
+          type: MSG.OCR_ERROR,
+          error: chrome.runtime.lastError?.message ?? 'Screenshot failed',
+        });
+      });
+      return;
+    }
+
+    if (debug) ocrBgLog('screenshot-taken', startMs, { dataUrlLength: dataUrl.length });
+
+    ensureOffscreenDocument()
+      .then(() => {
+        if (jobSeq !== ocrJobSeq) return;
+        chrome.storage.local.get({ ocrLang: config.ocrLang }, (stored) => {
+          if (jobSeq !== ocrJobSeq) return;
+          const lang = stored.ocrLang as string;
+          chrome.runtime.sendMessage(
+            { type: MSG.RUN_OCR, dataUrl, rect, dpr, lang, debug },
+            (response: { error?: string; text?: string; confidence?: number; croppedUrl?: string; elapsed?: number } | undefined) => {
+              clearTimeout(timeoutId);
+              finish(() => {
+                if (chrome.runtime.lastError) {
+                  chrome.tabs.sendMessage(tabId, {
+                    type: MSG.OCR_ERROR,
+                    error: chrome.runtime.lastError.message ?? 'OCR failed',
+                  });
+                  return;
+                }
+
+                if (!response || response.error) {
+                  chrome.tabs.sendMessage(tabId, {
+                    type: MSG.OCR_ERROR,
+                    error: response?.error ?? 'OCR failed',
+                  });
+                } else {
+                  chrome.tabs.sendMessage(tabId, {
+                    type: MSG.OCR_RESULT,
+                    text: response.text,
+                    confidence: response.confidence,
+                    croppedUrl: response.croppedUrl,
+                    elapsed: response.elapsed,
+                    debug,
+                  });
+                }
+              });
+            },
+          );
+        });
+      })
+      .catch((err: unknown) => {
+        clearTimeout(timeoutId);
+        finish(() => {
+          chrome.tabs.sendMessage(tabId, { type: MSG.OCR_ERROR, error: String(err) });
+        });
+      });
+  });
+}

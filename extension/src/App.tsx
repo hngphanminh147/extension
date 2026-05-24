@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Globe, ArrowRightLeft, AlertCircle } from 'lucide-react';
-import { DEFAULT_CONFIG, LANGUAGES, type TranslateResult, type SuggestResult, type MessageResponse } from './shared/types';
+import { Globe, ArrowRightLeft, AlertCircle, Scan } from 'lucide-react';
+import { DEFAULT_CONFIG, LANGUAGES, OCR_LANGUAGES, type TranslateResult, type SuggestResult, type MessageResponse } from './shared/types';
 import { MSG } from './shared/messages';
 import SearchInput from './popup/components/SearchInput';
 import SuggestionList from './popup/components/SuggestionList';
@@ -24,18 +24,42 @@ function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [sourceLang, setSourceLang] = useState(DEFAULT_CONFIG.sourceLang);
   const [targetLang, setTargetLang] = useState(DEFAULT_CONFIG.targetLang);
+  const [ocrDebug, setOcrDebug] = useState(false);
+  const [ocrLang, setOcrLang] = useState(DEFAULT_CONFIG.ocrLang);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSubmitRef = useRef<{ text: string; sl: string; tl: string } | null>(null);
 
   useEffect(() => {
     chrome.storage.local.get(
-      { sourceLang: DEFAULT_CONFIG.sourceLang, targetLang: DEFAULT_CONFIG.targetLang },
+      {
+        sourceLang: DEFAULT_CONFIG.sourceLang,
+        targetLang: DEFAULT_CONFIG.targetLang,
+        ocrLang: DEFAULT_CONFIG.ocrLang,
+        ocrDebug: false,
+      },
       (stored) => {
         setSourceLang(stored.sourceLang as string);
         setTargetLang(stored.targetLang as string);
+        setOcrLang(stored.ocrLang as string);
+        setOcrDebug(stored.ocrDebug as boolean);
       },
     );
   }, []);
+
+  const handleOcrDebugToggle = (checked: boolean) => {
+    setOcrDebug(checked);
+    chrome.storage.local.set({ ocrDebug: checked });
+  };
+
+  const handleOcrLangChange = (lang: string) => {
+    setOcrLang(lang);
+    chrome.storage.local.set({ ocrLang: lang });
+  };
+
+  const handleCaptureText = () => {
+    chrome.runtime.sendMessage({ type: MSG.START_OCR });
+    window.close();
+  };
 
   // Debounce only fetches suggestions — translation is explicit (Enter / search icon)
   useEffect(() => {
@@ -209,19 +233,38 @@ function App() {
         {outputState === 'success' && result?.mode === 'sentence' && <SentenceResult result={result} />}
       </div>
 
-      {/* Auto-translate toggle — placeholder, wired in Step 3 (content script tooltip) */}
-      <div className="qt-auto-row">
-        <label htmlFor="qt-auto" className="qt-auto-row__label">
-          Auto-translate selected text
-        </label>
-        <input
-          type="checkbox"
-          id="qt-auto"
-          role="switch"
-          className="qt-switch"
-          disabled
-          title="Coming soon — requires content script (Step 3)"
-        />
+      {/* OCR */}
+      <div className="qt-ocr-section">
+        <div className="qt-ocr-row">
+          <select
+            id="qt-ocr-lang"
+            className="qt-lang-select"
+            value={ocrLang}
+            onChange={(e) => handleOcrLangChange(e.target.value)}
+            aria-label="OCR language"
+          >
+            {Object.entries(OCR_LANGUAGES).map(([code, name]) => (
+              <option key={code} value={code}>{name}</option>
+            ))}
+          </select>
+          <button className="qt-ocr-btn" onClick={handleCaptureText}>
+            <Scan size={14} />
+            Scan
+          </button>
+        </div>
+        <div className="qt-auto-row qt-ocr-debug-row">
+          <label htmlFor="qt-ocr-debug" className="qt-auto-row__label">
+            OCR debug mode
+          </label>
+          <input
+            type="checkbox"
+            id="qt-ocr-debug"
+            role="switch"
+            className="qt-switch"
+            checked={ocrDebug}
+            onChange={(e) => handleOcrDebugToggle(e.target.checked)}
+          />
+        </div>
       </div>
     </div>
   );
