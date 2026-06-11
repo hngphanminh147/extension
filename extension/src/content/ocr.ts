@@ -11,6 +11,7 @@ interface OcrRect { x: number; y: number; w: number; h: number }
 let ocrOverlay: HTMLDivElement | null = null;
 let ocrResultPanel: HTMLDivElement | null = null;
 let ocrLoadingKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+let ocrTranslateFn: ((text: string, rect: DOMRect) => void) | null = null;
 
 function ocrDebugLog(stage: string, startMs: number, data: Record<string, unknown>): void {
   console.log(`[OCR:${stage}]`, { elapsed: Date.now() - startMs, ...data });
@@ -70,6 +71,7 @@ function showOcrResultPanel(
     ${debugSection}
     <div class="qt-ocr-result__actions">
       <button class="qt-ocr-result__copy">Copy</button>
+      ${text ? '<button class="qt-ocr-result__translate">Translate</button>' : ''}
     </div>
   `;
 
@@ -84,6 +86,16 @@ function showOcrResultPanel(
       }).catch(() => {
         copyBtn.textContent = 'Failed';
       });
+    });
+  }
+
+  const translateBtn = panel.querySelector('.qt-ocr-result__translate') as HTMLButtonElement | null;
+  if (translateBtn && ocrTranslateFn) {
+    const fn = ocrTranslateFn;
+    translateBtn.addEventListener('click', () => {
+      const panelRect = panel.getBoundingClientRect();
+      removeOcrResultPanel();
+      fn(text, panelRect);
     });
   }
 
@@ -226,11 +238,12 @@ function startOcrSelection(debug: boolean): void {
 
 /**
  * Registers all OCR-related chrome.runtime.onMessage handlers.
- * @param onTranslate - callback for the future "Translate →" button (step 9).
+ * @param onTranslate - called when the user clicks "Translate →" on the OCR result panel.
  */
 export function initOcrHandlers(
-  _onTranslate: (text: string, rect: DOMRect) => void,
+  onTranslate: (text: string, rect: DOMRect) => void,
 ): void {
+  ocrTranslateFn = onTranslate;
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === MSG_START_SELECTION) {
       startOcrSelection((msg.debug as boolean) ?? false);

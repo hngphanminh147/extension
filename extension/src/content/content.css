@@ -216,9 +216,11 @@
 .qt-ocr-result__actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
-.qt-ocr-result__copy {
+.qt-ocr-result__copy,
+.qt-ocr-result__translate {
   background: #313244;
   color: #cdd6f4;
   border: 1px solid rgba(205, 214, 244, 0.2);
@@ -229,7 +231,8 @@
   font-family: inherit;
 }
 
-.qt-ocr-result__copy:hover {
+.qt-ocr-result__copy:hover,
+.qt-ocr-result__translate:hover {
   background: #45475a;
 }
 

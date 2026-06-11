@@ -36,6 +36,7 @@ async function cropImage(
   dataUrl: string,
   rect: OcrRect,
   dpr: number,
+  mode: 'normal' | 'invert' | 'gray' = 'normal',
 ): Promise<{ croppedUrl: string; width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -53,6 +54,18 @@ async function cropImage(
       canvas.height = outH;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+
+      if (mode === 'invert') {
+        ctx.globalCompositeOperation = 'difference';
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, outW, outH);
+        ctx.globalCompositeOperation = 'source-over';
+      } else if (mode === 'gray') {
+        ctx.globalCompositeOperation = 'saturation';
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, outW, outH);
+        ctx.globalCompositeOperation = 'source-over';
+      }
 
       resolve({ croppedUrl: canvas.toDataURL('image/png'), width: outW, height: outH });
     };
@@ -82,21 +95,44 @@ chrome.runtime.onMessage.addListener((msg: RunOcrMessage | { type: typeof MSG.OC
 
     if (debug) debugLog('crop-start', startMs, { rect, dpr });
 
-    const { croppedUrl, width, height } = await cropImage(dataUrl, rect, dpr);
+    // Run normal pass
+    const { croppedUrl: normalUrl, width, height } = await cropImage(dataUrl, rect, dpr, 'normal');
     if (jobId !== activeJobId) return;
+    if (debug) debugLog('crop-done', startMs, { width, height, mode: 'normal' });
 
-    if (debug) debugLog('crop-done', startMs, { width, height, rect, dpr });
-    if (debug) debugLog('ocr-start', startMs, { width, height });
-
-    const result = await adapter.recognize(croppedUrl, lang);
+    const normalResult = await adapter.recognize(normalUrl, lang);
     if (jobId !== activeJobId) return;
+    if (debug) debugLog('ocr-done', startMs, { confidence: normalResult.confidence, mode: 'normal' });
 
-    if (debug) debugLog('ocr-done', startMs, { text: result.text.slice(0, 80), confidence: result.confidence });
+    interface Candidate { croppedUrl: string; text: string; confidence: number }
+    const candidates: Candidate[] = [{ croppedUrl: normalUrl, ...normalResult }];
+
+    if (normalResult.confidence < 50) {
+      // Retry with inverted colors (handles light-on-dark pages)
+      const { croppedUrl: invertUrl } = await cropImage(dataUrl, rect, dpr, 'invert');
+      if (jobId !== activeJobId) return;
+      const invertResult = await adapter.recognize(invertUrl, lang);
+      if (jobId !== activeJobId) return;
+      if (debug) debugLog('ocr-done', startMs, { confidence: invertResult.confidence, mode: 'invert' });
+      candidates.push({ croppedUrl: invertUrl, ...invertResult });
+
+      if (invertResult.confidence < 20) {
+        // Last resort: grayscale
+        const { croppedUrl: grayUrl } = await cropImage(dataUrl, rect, dpr, 'gray');
+        if (jobId !== activeJobId) return;
+        const grayResult = await adapter.recognize(grayUrl, lang);
+        if (jobId !== activeJobId) return;
+        if (debug) debugLog('ocr-done', startMs, { confidence: grayResult.confidence, mode: 'gray' });
+        candidates.push({ croppedUrl: grayUrl, ...grayResult });
+      }
+    }
+
+    const best = candidates.reduce((a, b) => b.confidence > a.confidence ? b : a);
 
     sendResponse({
-      text: result.text,
-      confidence: result.confidence,
-      croppedUrl: debug ? croppedUrl : undefined,
+      text: best.text,
+      confidence: best.confidence,
+      croppedUrl: debug ? best.croppedUrl : undefined,
       elapsed: Date.now() - startMs,
     });
   })().catch((err: unknown) => {

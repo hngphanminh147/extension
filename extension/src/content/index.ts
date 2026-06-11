@@ -87,10 +87,20 @@ function langOptions(selected: string, includeAuto: boolean): string {
 
 function positionElement(el: HTMLElement, rect: DOMRect): void {
   const MARGIN = 8;
-  const top = rect.bottom + window.scrollY + MARGIN;
-  let left = rect.left + window.scrollX;
+  const elH = el.offsetHeight || 120;
+  const elW = el.offsetWidth || 300;
 
-  const maxLeft = window.scrollX + window.innerWidth - el.offsetWidth - MARGIN;
+  // Prefer below the anchor; fall back to above when near the bottom of the viewport.
+  let top: number;
+  if (window.innerHeight - rect.bottom >= elH + MARGIN) {
+    top = rect.bottom + window.scrollY + MARGIN;
+  } else {
+    top = rect.top + window.scrollY - elH - MARGIN;
+    if (top < window.scrollY + MARGIN) top = window.scrollY + MARGIN;
+  }
+
+  let left = rect.left + window.scrollX;
+  const maxLeft = window.scrollX + window.innerWidth - elW - MARGIN;
   if (left > maxLeft) left = maxLeft;
   if (left < window.scrollX + MARGIN) left = window.scrollX + MARGIN;
 
