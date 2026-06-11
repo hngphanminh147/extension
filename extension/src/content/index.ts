@@ -299,4 +299,21 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 // ── OCR ───────────────────────────────────────────────────────────────────────
 
-initOcrHandlers(translateAndShow);
+function doTranslate(
+  text: string,
+  cb: (translated: string | null, error?: string) => void,
+): void {
+  chrome.runtime.sendMessage(
+    { type: MSG_TRANSLATE, text, sl: currentSl, tl: currentTl },
+    (response: MessageResponse<TranslateResult>) => {
+      if (chrome.runtime.lastError) { cb(null, 'Extension error'); return; }
+      if (response?.ok && response.data) {
+        cb(response.data.translatedText);
+      } else {
+        cb(null, response?.error ?? 'Translation failed');
+      }
+    },
+  );
+}
+
+initOcrHandlers(doTranslate);

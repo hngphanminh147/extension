@@ -11,11 +11,20 @@ interface OcrRect { x: number; y: number; w: number; h: number }
 let ocrOverlay: HTMLDivElement | null = null;
 let ocrResultPanel: HTMLDivElement | null = null;
 let ocrLoadingKeyHandler: ((e: KeyboardEvent) => void) | null = null;
-let ocrTranslateFn: ((text: string, rect: DOMRect) => void) | null = null;
+let ocrTranslateFn: ((text: string, cb: (translated: string | null, error?: string) => void) => void) | null = null;
+
+// ── Inline SVG icons ──────────────────────────────────────────────────────────
+
+const CAMERA_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+const COPY_ICON   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const CHECK_ICON  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const ALERT_ICON  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
 
 function ocrDebugLog(stage: string, startMs: number, data: Record<string, unknown>): void {
   console.log(`[OCR:${stage}]`, { elapsed: Date.now() - startMs, ...data });
 }
+
+// ── Panel lifecycle ───────────────────────────────────────────────────────────
 
 function removeOcrOverlay(): void {
   ocrOverlay?.remove();
@@ -36,6 +45,57 @@ function cancelOcr(): void {
   chrome.runtime.sendMessage({ type: MSG_OCR_CANCEL });
 }
 
+// ── Translation section helpers ───────────────────────────────────────────────
+
+function getOrCreateTranslationSection(panel: HTMLDivElement): HTMLDivElement {
+  let section = panel.querySelector('.qt-ocr-result__translation') as HTMLDivElement | null;
+  if (!section) {
+    section = document.createElement('div');
+    section.className = 'qt-ocr-result__translation';
+    const footer = panel.querySelector('.qt-ocr-result__footer');
+    panel.insertBefore(section, footer ?? null);
+  }
+  return section;
+}
+
+function setTranslationLoading(section: HTMLDivElement): void {
+  section.innerHTML = `
+    <div class="qt-ocr-result__tl-loading">
+      <div class="qt-ocr-result__tl-spinner"></div>
+      <span>Translating…</span>
+    </div>
+  `;
+}
+
+function setTranslationResult(section: HTMLDivElement, translated: string, original: string): void {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  section.innerHTML = `
+    <div class="qt-ocr-result__tl-row">
+      <span class="qt-ocr-result__tl-text">${esc(translated)}</span>
+      <button class="qt-ocr-result__tl-copy" aria-label="Copy translation">${COPY_ICON}</button>
+    </div>
+    <div class="qt-ocr-result__tl-source">${esc(original)}</div>
+  `;
+
+  const copyBtn = section.querySelector('.qt-ocr-result__tl-copy') as HTMLButtonElement | null;
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(translated).then(() => {
+        copyBtn.innerHTML = CHECK_ICON;
+        copyBtn.style.color = '#4cbb8a';
+        setTimeout(() => { copyBtn.innerHTML = COPY_ICON; copyBtn.style.color = ''; }, 1500);
+      }).catch(() => {});
+    });
+  }
+}
+
+function setTranslationError(section: HTMLDivElement, message: string): void {
+  const esc = (s: string) => s.replace(/</g, '&lt;');
+  section.innerHTML = `<div class="qt-ocr-result__tl-error">${esc(message)}</div>`;
+}
+
+// ── Panel builders ────────────────────────────────────────────────────────────
+
 function showOcrResultPanel(
   text: string,
   confidence: number,
@@ -48,10 +108,7 @@ function showOcrResultPanel(
   const panel = document.createElement('div');
   panel.className = 'qt-ocr-result';
 
-  const escapedText = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   let debugSection = '';
   if (debug) {
@@ -65,44 +122,55 @@ function showOcrResultPanel(
   }
 
   panel.innerHTML = `
-    <button class="qt-ocr-result__close" aria-label="Close">&#215;</button>
-    <div class="qt-ocr-result__header">Extracted Text</div>
-    <pre class="qt-ocr-result__text">${escapedText || '<span class="qt-ocr-result__empty">No text detected</span>'}</pre>
-    ${debugSection}
-    <div class="qt-ocr-result__actions">
-      <button class="qt-ocr-result__copy">Copy</button>
-      ${text ? '<button class="qt-ocr-result__translate">Translate</button>' : ''}
+    <div class="qt-ocr-result__head">
+      <div class="qt-ocr-result__icon">${CAMERA_ICON}</div>
+      <span class="qt-ocr-result__title">OCR Result</span>
+      <button class="qt-ocr-result__close" aria-label="Close">&#215;</button>
+    </div>
+    <div class="qt-ocr-result__card">
+      <pre class="qt-ocr-result__text">${text ? esc(text) : '<span class="qt-ocr-result__empty">No text detected</span>'}</pre>
+      ${debugSection}
+    </div>
+    <div class="qt-ocr-result__footer">
+      <button class="qt-ocr-result__copy-btn">Copy text</button>
+      ${text ? '<button class="qt-ocr-result__translate-btn">Translate</button>' : ''}
     </div>
   `;
 
   panel.querySelector('.qt-ocr-result__close')?.addEventListener('click', removeOcrResultPanel);
 
-  const copyBtn = panel.querySelector('.qt-ocr-result__copy') as HTMLButtonElement | null;
+  const copyBtn = panel.querySelector('.qt-ocr-result__copy-btn') as HTMLButtonElement | null;
   if (copyBtn) {
     copyBtn.addEventListener('click', () => {
       navigator.clipboard.writeText(text).then(() => {
         copyBtn.textContent = 'Copied!';
-        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
-      }).catch(() => {
-        copyBtn.textContent = 'Failed';
-      });
+        setTimeout(() => { copyBtn.textContent = 'Copy text'; }, 1500);
+      }).catch(() => { copyBtn.textContent = 'Failed'; });
     });
   }
 
-  const translateBtn = panel.querySelector('.qt-ocr-result__translate') as HTMLButtonElement | null;
+  const translateBtn = panel.querySelector('.qt-ocr-result__translate-btn') as HTMLButtonElement | null;
   if (translateBtn && ocrTranslateFn) {
     const fn = ocrTranslateFn;
     translateBtn.addEventListener('click', () => {
-      const panelRect = panel.getBoundingClientRect();
-      removeOcrResultPanel();
-      fn(text, panelRect);
+      translateBtn.disabled = true;
+      const section = getOrCreateTranslationSection(panel);
+      setTranslationLoading(section);
+
+      fn(text, (translated, error) => {
+        translateBtn.disabled = false;
+        if (error || !translated) {
+          setTranslationError(section, error ?? 'Translation failed');
+        } else {
+          setTranslationResult(section, translated, text);
+        }
+      });
     });
   }
 
   document.body.appendChild(panel);
   ocrResultPanel = panel;
 
-  // Auto-copy on result
   if (text) {
     navigator.clipboard.writeText(text).catch(() => {/* silent */});
   }
@@ -114,8 +182,11 @@ function showOcrErrorPanel(message: string): void {
   const panel = document.createElement('div');
   panel.className = 'qt-ocr-result qt-ocr-result--error';
   panel.innerHTML = `
-    <button class="qt-ocr-result__close" aria-label="Close">&#215;</button>
-    <div class="qt-ocr-result__header">OCR Error</div>
+    <div class="qt-ocr-result__head">
+      <div class="qt-ocr-result__icon">${ALERT_ICON}</div>
+      <span class="qt-ocr-result__title">OCR Error</span>
+      <button class="qt-ocr-result__close" aria-label="Close">&#215;</button>
+    </div>
     <div class="qt-ocr-result__error-msg">${message.replace(/</g, '&lt;')}</div>
   `;
   panel.querySelector('.qt-ocr-result__close')?.addEventListener('click', removeOcrResultPanel);
@@ -129,12 +200,17 @@ function showOcrLoadingPanel(): void {
   const panel = document.createElement('div');
   panel.className = 'qt-ocr-result qt-ocr-result--loading';
   panel.innerHTML = `
-    <button class="qt-ocr-result__close" aria-label="Cancel">&#215;</button>
-    <div class="qt-ocr-result__header">
-      <div class="qt-ocr-result__spinner"></div>
-      Running OCR…
+    <div class="qt-ocr-result__head">
+      <div class="qt-ocr-result__icon">${CAMERA_ICON}</div>
+      <div class="qt-ocr-result__head-loading">
+        <div class="qt-ocr-result__spinner"></div>
+        <span class="qt-ocr-result__title">Running OCR…</span>
+      </div>
+      <button class="qt-ocr-result__close" aria-label="Cancel">&#215;</button>
     </div>
-    <button class="qt-ocr-result__cancel">Cancel</button>
+    <div class="qt-ocr-result__footer">
+      <button class="qt-ocr-result__cancel">Cancel</button>
+    </div>
   `;
 
   panel.querySelector('.qt-ocr-result__close')?.addEventListener('click', cancelOcr);
@@ -148,6 +224,8 @@ function showOcrLoadingPanel(): void {
   document.body.appendChild(panel);
   ocrResultPanel = panel;
 }
+
+// ── Selection overlay ─────────────────────────────────────────────────────────
 
 function startOcrSelection(debug: boolean): void {
   removeOcrOverlay();
@@ -204,7 +282,7 @@ function startOcrSelection(debug: boolean): void {
 
     cleanup();
 
-    if (w < 8 || h < 8) return; // Too small — treat as cancelled
+    if (w < 8 || h < 8) return;
 
     const dpr = window.devicePixelRatio || 1;
     const rect: OcrRect = { x, y, w, h };
@@ -236,12 +314,15 @@ function startOcrSelection(debug: boolean): void {
   document.addEventListener('keydown', onKeyDown);
 }
 
+// ── Init ──────────────────────────────────────────────────────────────────────
+
 /**
  * Registers all OCR-related chrome.runtime.onMessage handlers.
- * @param onTranslate - called when the user clicks "Translate →" on the OCR result panel.
+ * @param onTranslate - called when the user clicks "Translate" on the OCR result panel.
+ *   Receives the text to translate and a callback to deliver the result back in-panel.
  */
 export function initOcrHandlers(
-  onTranslate: (text: string, rect: DOMRect) => void,
+  onTranslate: (text: string, cb: (translated: string | null, error?: string) => void) => void,
 ): void {
   ocrTranslateFn = onTranslate;
   chrome.runtime.onMessage.addListener((msg) => {
