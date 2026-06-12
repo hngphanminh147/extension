@@ -588,7 +588,15 @@
   color: var(--fg-muted);
 }
 
-/* ── Copy button ─────────────────────────────────────────── */
+/* ── Action buttons ──────────────────────────────────────── */
+.qt-word-card__actions,
+.qt-sentence__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qt-icon-btn,
 .qt-copy-btn {
   flex-shrink: 0;
   display: flex;
@@ -604,6 +612,7 @@
   transition: background 0.15s, color 0.15s;
 }
 
+.qt-icon-btn:hover,
 .qt-copy-btn:hover {
   background: var(--border);
   color: var(--fg);
@@ -611,6 +620,10 @@
 
 .qt-copy-btn svg[data-lucide="check"] {
   color: var(--success);
+}
+
+.qt-icon-btn svg[data-lucide="volume-x"] {
+  color: var(--primary);
 }
 
 /* ── Auto-translate row ──────────────────────────────────── */

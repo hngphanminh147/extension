@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, Volume2, VolumeX } from 'lucide-react';
+import { speak, stopSpeaking, isSpeaking } from '../../shared/speech';
 import type { WordTranslation, TranslationGroup, DefinitionGroup, ExampleItem, SynonymGroup, SenseBlock } from '../../shared/types';
 
 type TabId = 'translate' | 'definition' | 'examples' | 'synonyms';
@@ -12,6 +13,7 @@ interface TabDef {
 
 interface Props {
   result: WordTranslation;
+  sourceLang: string;
 }
 
 // --- Tab panel sub-components ---
@@ -178,7 +180,7 @@ function SynonymsTab({ groups }: Readonly<{ groups: SynonymGroup[] }>) {
 
 // --- Main WordCard ---
 
-export default function WordCard({ result }: Readonly<Props>) {
+export default function WordCard({ result, sourceLang }: Readonly<Props>) {
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (result.translations.length > 0) return 'translate';
     if (result.definitions.length > 0) return 'definition';
@@ -187,11 +189,28 @@ export default function WordCard({ result }: Readonly<Props>) {
     return 'translate';
   });
   const [copied, setCopied] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
 
   const copy = async () => {
     await navigator.clipboard.writeText(result.translatedText);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleSpeak = async () => {
+    if (isSpeaking()) {
+      stopSpeaking();
+      setSpeaking(false);
+    } else {
+      setSpeaking(true);
+      try {
+        await speak(result.sourceText, sourceLang);
+      } catch (err) {
+        console.error('Speech error:', err);
+      } finally {
+        setSpeaking(false);
+      }
+    }
   };
 
   // Count total items per tab for the badge
@@ -212,7 +231,7 @@ export default function WordCard({ result }: Readonly<Props>) {
 
   return (
     <div className="qt-word-card">
-      {/* Header: headline translation + phonetic + copy */}
+      {/* Header: headline translation + phonetic + actions */}
       <div className="qt-word-card__header">
         <div className="qt-word-card__main">
           <span className="qt-word-card__translation">{result.translatedText}</span>
@@ -220,13 +239,22 @@ export default function WordCard({ result }: Readonly<Props>) {
             <span className="qt-word-card__phonetic">{result.phonetic}</span>
           )}
         </div>
-        <button
-          className="qt-copy-btn"
-          onClick={copy}
-          aria-label={copied ? 'Copied' : 'Copy translation'}
-        >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-        </button>
+        <div className="qt-word-card__actions">
+          <button
+            className="qt-icon-btn"
+            onClick={handleSpeak}
+            aria-label={speaking ? 'Stop speaking' : 'Speak translation'}
+          >
+            {speaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+          <button
+            className="qt-copy-btn"
+            onClick={copy}
+            aria-label={copied ? 'Copied' : 'Copy translation'}
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
       </div>
 
       {/* Tab strip */}

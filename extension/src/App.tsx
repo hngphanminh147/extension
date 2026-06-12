@@ -235,8 +235,8 @@ function App() {
             <button className="qt-retry-btn" onClick={handleRetry}>Try again</button>
           </div>
         )}
-        {outputState === 'success' && result?.mode === 'word' && <WordCard key={result.sourceText} result={result} />}
-        {outputState === 'success' && result?.mode === 'sentence' && <SentenceResult result={result} />}
+        {outputState === 'success' && result?.mode === 'word' && <WordCard key={result.sourceText} result={result} sourceLang={sourceLang} />}
+        {outputState === 'success' && result?.mode === 'sentence' && <SentenceResult result={result} sourceLang={sourceLang} />}
       </div>
 
       {/* OCR */}
