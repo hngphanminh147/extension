@@ -4,7 +4,7 @@
  * Lifecycle:
  *  1. Background creates this document via chrome.offscreen.createDocument().
  *  2. Background sends RUN_OCR with { dataUrl, rect, dpr, lang, debug }.
- *  3. We crop the screenshot on a canvas, run the OcrAdapter, and reply OCR_DONE.
+ *  3. We crop the screenshot on a canvas, run the OcrAdapter, and reply via sendResponse callback.
  *
  * DPI note: mouse coordinates from the content script are CSS pixels.
  * The screenshot from captureVisibleTab() is device pixels. We must scale
@@ -13,8 +13,8 @@
 
 import { MSG } from '../shared/messages';
 import { createOcrAdapter } from '../ocr/index';
-
-interface OcrRect { x: number; y: number; w: number; h: number }
+import type { OcrRect } from '../shared/types';
+import { ocrLog } from '../shared/utils';
 
 interface RunOcrMessage {
   type: typeof MSG.RUN_OCR;
@@ -27,10 +27,6 @@ interface RunOcrMessage {
 
 const adapter = createOcrAdapter();
 let activeJobId = 0;
-
-function debugLog(stage: string, startMs: number, data: Record<string, unknown>): void {
-  console.log(`[OCR:${stage}]`, { elapsed: Date.now() - startMs, ...data });
-}
 
 async function cropImage(
   dataUrl: string,
@@ -93,16 +89,16 @@ chrome.runtime.onMessage.addListener((msg: RunOcrMessage | { type: typeof MSG.OC
   (async () => {
     const { dataUrl, rect, dpr, lang, debug } = msg;
 
-    if (debug) debugLog('crop-start', startMs, { rect, dpr });
+    if (debug) ocrLog('crop-start', startMs, { rect, dpr });
 
     // Run normal pass
     const { croppedUrl: normalUrl, width, height } = await cropImage(dataUrl, rect, dpr, 'normal');
     if (jobId !== activeJobId) return;
-    if (debug) debugLog('crop-done', startMs, { width, height, mode: 'normal' });
+    if (debug) ocrLog('crop-done', startMs, { width, height, mode: 'normal' });
 
     const normalResult = await adapter.recognize(normalUrl, lang);
     if (jobId !== activeJobId) return;
-    if (debug) debugLog('ocr-done', startMs, { confidence: normalResult.confidence, mode: 'normal' });
+    if (debug) ocrLog('ocr-done', startMs, { confidence: normalResult.confidence, mode: 'normal' });
 
     interface Candidate { croppedUrl: string; text: string; confidence: number }
     const candidates: Candidate[] = [{ croppedUrl: normalUrl, ...normalResult }];
@@ -113,7 +109,7 @@ chrome.runtime.onMessage.addListener((msg: RunOcrMessage | { type: typeof MSG.OC
       if (jobId !== activeJobId) return;
       const invertResult = await adapter.recognize(invertUrl, lang);
       if (jobId !== activeJobId) return;
-      if (debug) debugLog('ocr-done', startMs, { confidence: invertResult.confidence, mode: 'invert' });
+      if (debug) ocrLog('ocr-done', startMs, { confidence: invertResult.confidence, mode: 'invert' });
       candidates.push({ croppedUrl: invertUrl, ...invertResult });
 
       if (invertResult.confidence < 20) {
@@ -122,17 +118,17 @@ chrome.runtime.onMessage.addListener((msg: RunOcrMessage | { type: typeof MSG.OC
         if (jobId !== activeJobId) return;
         const grayResult = await adapter.recognize(grayUrl, lang);
         if (jobId !== activeJobId) return;
-        if (debug) debugLog('ocr-done', startMs, { confidence: grayResult.confidence, mode: 'gray' });
+        if (debug) ocrLog('ocr-done', startMs, { confidence: grayResult.confidence, mode: 'gray' });
         candidates.push({ croppedUrl: grayUrl, ...grayResult });
       }
     }
 
-    const best = candidates.reduce((a, b) => b.confidence > a.confidence ? b : a);
+    const best = candidates.reduce((a, b) => b.confidence > a.confidence ? b : a, candidates[0]);
 
     sendResponse({
       text: best.text,
       confidence: best.confidence,
-      croppedUrl: debug ? best.croppedUrl : undefined,
+      croppedUrl: best.croppedUrl,
       elapsed: Date.now() - startMs,
     });
   })().catch((err: unknown) => {

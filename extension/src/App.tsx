@@ -12,7 +12,13 @@ type OutputState = 'idle' | 'loading' | 'success' | 'error';
 
 function sendMsg<T>(type: string, text: string, extra?: Record<string, string>): Promise<MessageResponse<T>> {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type, text, ...extra }, (res: MessageResponse<T>) => resolve(res));
+    chrome.runtime.sendMessage({ type, text, ...extra }, (res: MessageResponse<T>) => {
+      if (chrome.runtime.lastError) {
+        resolve({ ok: false, error: chrome.runtime.lastError.message ?? 'Extension error' });
+        return;
+      }
+      resolve(res);
+    });
   });
 }
 
@@ -35,7 +41,7 @@ function App() {
         sourceLang: DEFAULT_CONFIG.sourceLang,
         targetLang: DEFAULT_CONFIG.targetLang,
         ocrLang: DEFAULT_CONFIG.ocrLang,
-        ocrDebug: false,
+        ocrDebug: DEFAULT_CONFIG.ocrDebug,
       },
       (stored) => {
         setSourceLang(stored.sourceLang as string);
@@ -161,7 +167,7 @@ function App() {
         <div className="qt-header__icon">
           <Globe size={16} />
         </div>
-        <h1 className="qt-header__title">Extension</h1>
+        <h1 className="qt-header__title">Quick Translate</h1>
       </header>
 
       {/* Language pair */}
@@ -254,7 +260,7 @@ function App() {
         </div>
         <div className="qt-auto-row qt-ocr-debug-row">
           <label htmlFor="qt-ocr-debug" className="qt-auto-row__label">
-            OCR debug mode
+            Show OCR Image
           </label>
           <input
             type="checkbox"

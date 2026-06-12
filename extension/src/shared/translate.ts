@@ -19,7 +19,7 @@ export function isSingleWord(text: string): boolean {
 }
 
 /** Removes all HTML tags from `html`, returning plain text. */
-export function stripTags(html: string): string {
+function stripTags(html: string): string {
   return html.replace(/<[^>]+>/g, '');
 }
 

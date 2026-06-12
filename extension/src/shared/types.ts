@@ -1,9 +1,12 @@
+export interface OcrRect { x: number; y: number; w: number; h: number }
+
 export interface ExtensionConfig {
   sourceLang: string;
   targetLang: string;
   uiLang: string;
   debounceMs: number;
   ocrLang: string;
+  ocrDebug: boolean;
 }
 
 export const DEFAULT_CONFIG: ExtensionConfig = {
@@ -12,6 +15,7 @@ export const DEFAULT_CONFIG: ExtensionConfig = {
   uiLang: 'en',
   debounceMs: 300,
   ocrLang: 'eng',
+  ocrDebug: false,
 };
 
 /** Tesseract language codes with bundled .traineddata files in public/lang-data/ */
@@ -123,18 +127,6 @@ export interface SentenceTranslation {
 export type TranslateResult = WordTranslation | SentenceTranslation;
 
 // --- Message protocol ---
-
-export interface MessageRequest {
-  type: string;
-  text: string;
-  sl?: string;
-  tl?: string;
-}
-
-export interface ContentMessage {
-  type: string;
-  text: string;
-}
 
 export interface MessageResponse<T> {
   ok: boolean;

@@ -191,7 +191,7 @@ export default function WordCard({ result }: Readonly<Props>) {
   const copy = async () => {
     await navigator.clipboard.writeText(result.translatedText);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   // Count total items per tab for the badge

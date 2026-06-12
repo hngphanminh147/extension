@@ -1,3 +1,6 @@
+// Type-only imports are erased at compile time — no runtime chunk dependency created.
+// Value imports from shared modules must be inlined below to avoid a Rollup shared chunk
+// that classic content scripts cannot load.
 import type { MessageResponse, TranslateResult } from '../shared/types';
 import { initOcrHandlers } from './ocr';
 
@@ -8,7 +11,7 @@ const MSG_CONTEXT_TRANSLATE = 'CONTEXT_TRANSLATE';
 // Value copy of LANGUAGES from shared/types.ts — kept here to avoid a shared chunk
 // that would require an ES module import in the classic content script.
 const LANGUAGES: Record<string, string> = {
-  auto: 'Auto', en: 'English', vi: 'Vietnamese', zh: 'Chinese',
+  auto: 'Auto-detect', en: 'English', vi: 'Vietnamese', zh: 'Chinese',
   ja: 'Japanese', ko: 'Korean', fr: 'French', de: 'German',
   es: 'Spanish', pt: 'Portuguese', ru: 'Russian', ar: 'Arabic',
   it: 'Italian', th: 'Thai', id: 'Indonesian', nl: 'Dutch',
@@ -16,6 +19,7 @@ const LANGUAGES: Record<string, string> = {
 };
 
 // ── Language state (loaded from storage, kept in sync with popup) ─────────────
+// Defaults inlined — keep in sync with DEFAULT_CONFIG in shared/types.ts.
 
 const DEFAULT_SL = 'en';
 const DEFAULT_TL = 'vi';
@@ -23,7 +27,7 @@ const DEFAULT_TL = 'vi';
 let currentSl = DEFAULT_SL;
 let currentTl = DEFAULT_TL;
 
-chrome.storage.local.get({ sourceLang: 'en', targetLang: 'vi' }, (result) => {
+chrome.storage.local.get({ sourceLang: DEFAULT_SL, targetLang: DEFAULT_TL }, (result) => {
   currentSl = result.sourceLang as string;
   currentTl = result.targetLang as string;
 });
@@ -67,11 +71,8 @@ function getOrCreateTooltip(): HTMLDivElement {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function langOptions(selected: string, includeAuto: boolean): string {

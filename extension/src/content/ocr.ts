@@ -20,6 +20,12 @@ const COPY_ICON   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
 const CHECK_ICON  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const ALERT_ICON  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
 
+// Inlined — value imports from shared modules would create a Rollup shared chunk
+// that classic content scripts cannot load.
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function ocrDebugLog(stage: string, startMs: number, data: Record<string, unknown>): void {
   console.log(`[OCR:${stage}]`, { elapsed: Date.now() - startMs, ...data });
 }
@@ -68,13 +74,12 @@ function setTranslationLoading(section: HTMLDivElement): void {
 }
 
 function setTranslationResult(section: HTMLDivElement, translated: string, original: string): void {
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   section.innerHTML = `
     <div class="qt-ocr-result__tl-row">
-      <span class="qt-ocr-result__tl-text">${esc(translated)}</span>
+      <span class="qt-ocr-result__tl-text">${escapeHtml(translated)}</span>
       <button class="qt-ocr-result__tl-copy" aria-label="Copy translation">${COPY_ICON}</button>
     </div>
-    <div class="qt-ocr-result__tl-source">${esc(original)}</div>
+    <div class="qt-ocr-result__tl-source">${escapeHtml(original)}</div>
   `;
 
   const copyBtn = section.querySelector('.qt-ocr-result__tl-copy') as HTMLButtonElement | null;
@@ -90,8 +95,7 @@ function setTranslationResult(section: HTMLDivElement, translated: string, origi
 }
 
 function setTranslationError(section: HTMLDivElement, message: string): void {
-  const esc = (s: string) => s.replace(/</g, '&lt;');
-  section.innerHTML = `<div class="qt-ocr-result__tl-error">${esc(message)}</div>`;
+  section.innerHTML = `<div class="qt-ocr-result__tl-error">${escapeHtml(message)}</div>`;
 }
 
 // ── Panel builders ────────────────────────────────────────────────────────────
@@ -108,18 +112,24 @@ function showOcrResultPanel(
   const panel = document.createElement('div');
   panel.className = 'qt-ocr-result';
 
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const textContent = text
+    ? escapeHtml(text)
+    : '<span class="qt-ocr-result__empty">No text detected</span>';
 
-  let debugSection = '';
-  if (debug) {
-    debugSection = `
-      <div class="qt-ocr-result__debug">
-        ${croppedUrl ? `<img class="qt-ocr-result__preview" src="${croppedUrl}" alt="Cropped region" />` : ''}
-        <div class="qt-ocr-result__meta">
-          Confidence: ${confidence}%${elapsed === undefined ? '' : ` &nbsp;·&nbsp; ${elapsed}ms`}
-        </div>
-      </div>`;
-  }
+  // Image preview toggle — always available when croppedUrl is present
+  const previewSection = croppedUrl ? `
+    <div class="qt-ocr-result__preview-row">
+      <div class="qt-ocr-result__preview-divider"></div>
+      <button class="qt-ocr-result__preview-toggle">Show image ▾</button>
+    </div>
+    <img class="qt-ocr-result__preview qt-ocr-result__preview--hidden" src="${croppedUrl}" alt="Scanned region" />
+  ` : '';
+
+  // Debug meta — only shown when ocrDebug is on
+  const elapsedSuffix = elapsed === undefined ? '' : ` · ${elapsed}ms`;
+  const metaSection = debug
+    ? `<div class="qt-ocr-result__meta">Confidence: ${confidence}%${elapsedSuffix}</div>`
+    : '';
 
   panel.innerHTML = `
     <div class="qt-ocr-result__head">
@@ -128,8 +138,9 @@ function showOcrResultPanel(
       <button class="qt-ocr-result__close" aria-label="Close">&#215;</button>
     </div>
     <div class="qt-ocr-result__card">
-      <pre class="qt-ocr-result__text">${text ? esc(text) : '<span class="qt-ocr-result__empty">No text detected</span>'}</pre>
-      ${debugSection}
+      <pre class="qt-ocr-result__text">${textContent}</pre>
+      ${previewSection}
+      ${metaSection}
     </div>
     <div class="qt-ocr-result__footer">
       <button class="qt-ocr-result__copy-btn">Copy text</button>
@@ -138,6 +149,16 @@ function showOcrResultPanel(
   `;
 
   panel.querySelector('.qt-ocr-result__close')?.addEventListener('click', removeOcrResultPanel);
+
+  // Image toggle
+  const toggleBtn = panel.querySelector('.qt-ocr-result__preview-toggle') as HTMLButtonElement | null;
+  const previewImg = panel.querySelector('.qt-ocr-result__preview') as HTMLImageElement | null;
+  if (toggleBtn && previewImg) {
+    toggleBtn.addEventListener('click', () => {
+      const hidden = previewImg.classList.toggle('qt-ocr-result__preview--hidden');
+      toggleBtn.textContent = hidden ? 'Show image ▾' : 'Hide image ▴';
+    });
+  }
 
   const copyBtn = panel.querySelector('.qt-ocr-result__copy-btn') as HTMLButtonElement | null;
   if (copyBtn) {
@@ -187,7 +208,7 @@ function showOcrErrorPanel(message: string): void {
       <span class="qt-ocr-result__title">OCR Error</span>
       <button class="qt-ocr-result__close" aria-label="Close">&#215;</button>
     </div>
-    <div class="qt-ocr-result__error-msg">${message.replace(/</g, '&lt;')}</div>
+    <div class="qt-ocr-result__error-msg">${escapeHtml(message)}</div>
   `;
   panel.querySelector('.qt-ocr-result__close')?.addEventListener('click', removeOcrResultPanel);
   document.body.appendChild(panel);

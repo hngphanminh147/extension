@@ -264,26 +264,55 @@
   font-style: italic;
 }
 
-/* debug info inside the card */
-.qt-ocr-result__debug {
+/* image preview toggle row */
+.qt-ocr-result__preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--qo-border);
+}
+
+.qt-ocr-result__preview-divider {
+  flex: 1;
+  height: 1px;
+  background: var(--qo-border);
+}
+
+.qt-ocr-result__preview-toggle {
+  background: none;
+  border: none;
+  color: var(--qo-muted);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.qt-ocr-result__preview-toggle:hover {
+  color: var(--qo-fg);
 }
 
 .qt-ocr-result__preview {
   display: block;
   max-width: 100%;
-  max-height: 120px;
+  max-height: 140px;
   object-fit: contain;
   border-radius: 5px;
-  margin-bottom: 6px;
+  margin-top: 6px;
   border: 1px solid var(--qo-border);
 }
 
+.qt-ocr-result__preview--hidden {
+  display: none;
+}
+
+/* debug meta (confidence%, elapsed) — visible only when ocrDebug is on */
 .qt-ocr-result__meta {
   font-size: 11px;
   color: var(--qo-muted);
+  margin-top: 6px;
 }
 
 /* ── Translation section (inserted on demand) ── */

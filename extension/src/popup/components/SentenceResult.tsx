@@ -12,7 +12,7 @@ export default function SentenceResult({ result }: Readonly<Props>) {
   const copy = async () => {
     await navigator.clipboard.writeText(result.translatedText);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   return (

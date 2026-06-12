@@ -1,11 +1,20 @@
 // indices per .docs/request-response-formats.md; positions may drift across regions/clients
-import { DEFAULT_CONFIG, type ExtensionConfig, type MessageResponse, type SuggestResult, type TranslateResult } from '../shared/types';
+import { DEFAULT_CONFIG, type ExtensionConfig, type OcrRect, type MessageResponse, type SuggestResult, type TranslateResult } from '../shared/types';
 import { MSG } from '../shared/messages';
 import { isSingleWord, parseSuggestResponse, parseTranslateResponse } from '../shared/translate';
+import { ocrLog } from '../shared/utils';
 
 let config: ExtensionConfig = { ...DEFAULT_CONFIG };
 chrome.storage.local.get(DEFAULT_CONFIG, (stored) => {
   config = stored as ExtensionConfig;
+});
+
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.sourceLang) config.sourceLang = changes.sourceLang.newValue as string;
+  if (changes.targetLang) config.targetLang = changes.targetLang.newValue as string;
+  if (changes.uiLang)     config.uiLang     = changes.uiLang.newValue as string;
+  if (changes.ocrLang)    config.ocrLang    = changes.ocrLang.newValue as string;
+  if (changes.ocrDebug)   config.ocrDebug   = changes.ocrDebug.newValue as boolean;
 });
 
 async function fetchSuggest(text: string): Promise<SuggestResult> {
@@ -49,10 +58,12 @@ async function fetchTranslate(text: string, sl?: string, tl?: string): Promise<T
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'qt-translate',
-    title: 'Translate',
-    contexts: ['selection'],
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'qt-translate',
+      title: 'Translate',
+      contexts: ['selection'],
+    });
   });
 });
 
@@ -102,8 +113,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // ── OCR helpers ──────────────────────────────────────────────────────────────
 
-interface OcrRect { x: number; y: number; w: number; h: number }
-
 let pendingOcrTabId: number | null = null;
 let ocrJobSeq = 0;
 const OCR_TIMEOUT_MS = 120_000;
@@ -130,15 +139,8 @@ function handleStartOcr(): void {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tabId = tabs[0]?.id;
     if (tabId == null) return;
-    chrome.storage.local.get({ ocrDebug: false }, (stored) => {
-      const debug = stored.ocrDebug as boolean;
-      chrome.tabs.sendMessage(tabId, { type: MSG.START_SELECTION, debug });
-    });
+    chrome.tabs.sendMessage(tabId, { type: MSG.START_SELECTION, debug: config.ocrDebug });
   });
-}
-
-function ocrBgLog(stage: string, startMs: number, data: Record<string, unknown>): void {
-  console.log(`[OCR:${stage}]`, { elapsed: Date.now() - startMs, ...data });
 }
 
 function handleSelectionDone(
@@ -181,46 +183,42 @@ function handleSelectionDone(
       return;
     }
 
-    if (debug) ocrBgLog('screenshot-taken', startMs, { dataUrlLength: dataUrl.length });
+    if (debug) ocrLog('screenshot-taken', startMs, { dataUrlLength: dataUrl.length });
 
     ensureOffscreenDocument()
       .then(() => {
         if (jobSeq !== ocrJobSeq) return;
-        chrome.storage.local.get({ ocrLang: config.ocrLang }, (stored) => {
-          if (jobSeq !== ocrJobSeq) return;
-          const lang = stored.ocrLang as string;
-          chrome.runtime.sendMessage(
-            { type: MSG.RUN_OCR, dataUrl, rect, dpr, lang, debug },
-            (response: { error?: string; text?: string; confidence?: number; croppedUrl?: string; elapsed?: number } | undefined) => {
-              clearTimeout(timeoutId);
-              finish(() => {
-                if (chrome.runtime.lastError) {
-                  chrome.tabs.sendMessage(tabId, {
-                    type: MSG.OCR_ERROR,
-                    error: chrome.runtime.lastError.message ?? 'OCR failed',
-                  });
-                  return;
-                }
+        chrome.runtime.sendMessage(
+          { type: MSG.RUN_OCR, dataUrl, rect, dpr, lang: config.ocrLang, debug },
+          (response: { error?: string; text?: string; confidence?: number; croppedUrl?: string; elapsed?: number } | undefined) => {
+            clearTimeout(timeoutId);
+            finish(() => {
+              if (chrome.runtime.lastError) {
+                chrome.tabs.sendMessage(tabId, {
+                  type: MSG.OCR_ERROR,
+                  error: chrome.runtime.lastError.message ?? 'OCR failed',
+                });
+                return;
+              }
 
-                if (!response || response.error) {
-                  chrome.tabs.sendMessage(tabId, {
-                    type: MSG.OCR_ERROR,
-                    error: response?.error ?? 'OCR failed',
-                  });
-                } else {
-                  chrome.tabs.sendMessage(tabId, {
-                    type: MSG.OCR_RESULT,
-                    text: response.text,
-                    confidence: response.confidence,
-                    croppedUrl: response.croppedUrl,
-                    elapsed: response.elapsed,
-                    debug,
-                  });
-                }
-              });
-            },
-          );
-        });
+              if (!response || response.error) {
+                chrome.tabs.sendMessage(tabId, {
+                  type: MSG.OCR_ERROR,
+                  error: response?.error ?? 'OCR failed',
+                });
+              } else {
+                chrome.tabs.sendMessage(tabId, {
+                  type: MSG.OCR_RESULT,
+                  text: response.text,
+                  confidence: response.confidence,
+                  croppedUrl: response.croppedUrl,
+                  elapsed: response.elapsed,
+                  debug,
+                });
+              }
+            });
+          },
+        );
       })
       .catch((err: unknown) => {
         clearTimeout(timeoutId);
