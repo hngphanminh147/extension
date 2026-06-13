@@ -27,7 +27,7 @@
 /* ── Popup shell ─────────────────────────────────────────── */
 .qt-popup {
   width: 360px;
-  max-height: 580px;
+  height: 530px;
   overflow-y: auto;
   overflow-x: hidden;
   background: var(--bg);
@@ -229,11 +229,14 @@
 
 /* ── Output area ─────────────────────────────────────────── */
 .qt-output {
+  flex: 1;
+  min-height: 0;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  min-height: 90px;
   transition: border-color 0.2s, background 0.2s;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .qt-output--idle,
@@ -256,6 +259,8 @@
 
 .qt-output--success {
   background: var(--card);
+  display: flex;
+  flex-direction: column;
 }
 
 .qt-output__placeholder {
@@ -316,6 +321,13 @@
 
 /* ── Word card ───────────────────────────────────────────── */
 /* no padding on .qt-word-card — header and tab-body carry their own */
+.qt-word-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .qt-word-card__header {
   display: flex;
   align-items: flex-start;
@@ -381,17 +393,19 @@
 
 /* ── Tab body ────────────────────────────────────────────── */
 .qt-tab-body {
+  flex: 1;
+  min-height: 0;
   padding: 12px 14px;
-  min-height: 100px;
-  max-height: 240px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .qt-tab-empty {
   color: var(--fg-muted);
   font-size: 13px;
   text-align: center;
-  padding: 20px 0;
+  padding: 40px 0;
 }
 
 /* ── Sense blocks (shared across tabs) ──────────────────── */
@@ -565,7 +579,10 @@
 
 /* ── Sentence result ─────────────────────────────────────── */
 .qt-sentence {
+  flex: 1;
   padding: 14px;
+  display: flex;
+  flex-direction: column;
 }
 
 .qt-sentence__header {
