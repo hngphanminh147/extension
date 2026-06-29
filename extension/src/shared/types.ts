@@ -6,7 +6,6 @@ export interface ExtensionConfig {
   uiLang: string;
   debounceMs: number;
   ocrLang: string;
-  ocrDebug: boolean;
 }
 
 export const DEFAULT_CONFIG: ExtensionConfig = {
@@ -15,7 +14,6 @@ export const DEFAULT_CONFIG: ExtensionConfig = {
   uiLang: 'en',
   debounceMs: 300,
   ocrLang: 'eng',
-  ocrDebug: false,
 };
 
 /** Tesseract language codes with bundled .traineddata files in public/lang-data/ */

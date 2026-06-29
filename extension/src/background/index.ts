@@ -2,7 +2,6 @@
 import { DEFAULT_CONFIG, type ExtensionConfig, type OcrRect, type MessageResponse, type SuggestResult, type TranslateResult } from '../shared/types';
 import { MSG } from '../shared/messages';
 import { isSingleWord, parseSuggestResponse, parseTranslateResponse } from '../shared/translate';
-import { ocrLog } from '../shared/utils';
 
 let config: ExtensionConfig = { ...DEFAULT_CONFIG };
 chrome.storage.local.get(DEFAULT_CONFIG, (stored) => {
@@ -14,7 +13,6 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.targetLang) config.targetLang = changes.targetLang.newValue as string;
   if (changes.uiLang)     config.uiLang     = changes.uiLang.newValue as string;
   if (changes.ocrLang)    config.ocrLang    = changes.ocrLang.newValue as string;
-  if (changes.ocrDebug)   config.ocrDebug   = changes.ocrDebug.newValue as boolean;
 });
 
 async function fetchSuggest(text: string): Promise<SuggestResult> {
@@ -100,7 +98,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === MSG.SELECTION_DONE) {
     handleSelectionDone(
-      msg as { type: string; rect: OcrRect; dpr: number; debug: boolean },
+      msg as { type: string; rect: OcrRect; dpr: number },
       sender.tab?.id,
     );
     return;
@@ -139,19 +137,19 @@ function handleStartOcr(): void {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tabId = tabs[0]?.id;
     if (tabId == null) return;
-    chrome.tabs.sendMessage(tabId, { type: MSG.START_SELECTION, debug: config.ocrDebug });
+    chrome.tabs.sendMessage(tabId, { type: MSG.START_SELECTION });
   });
 }
 
 function handleSelectionDone(
-  msg: { type: string; rect: OcrRect; dpr: number; debug: boolean },
+  msg: { type: string; rect: OcrRect; dpr: number },
   tabId: number | undefined,
 ): void {
   if (tabId == null) return;
   pendingOcrTabId = tabId;
   const jobSeq = ++ocrJobSeq;
 
-  const { rect, dpr, debug } = msg;
+  const { rect, dpr } = msg;
   const startMs = Date.now();
   let settled = false;
 
@@ -183,13 +181,11 @@ function handleSelectionDone(
       return;
     }
 
-    if (debug) ocrLog('screenshot-taken', startMs, { dataUrlLength: dataUrl.length });
-
     ensureOffscreenDocument()
       .then(() => {
         if (jobSeq !== ocrJobSeq) return;
         chrome.runtime.sendMessage(
-          { type: MSG.RUN_OCR, dataUrl, rect, dpr, lang: config.ocrLang, debug },
+          { type: MSG.RUN_OCR, dataUrl, rect, dpr, lang: config.ocrLang },
           (response: { error?: string; text?: string; confidence?: number; croppedUrl?: string; elapsed?: number } | undefined) => {
             clearTimeout(timeoutId);
             finish(() => {
@@ -213,7 +209,6 @@ function handleSelectionDone(
                   confidence: response.confidence,
                   croppedUrl: response.croppedUrl,
                   elapsed: response.elapsed,
-                  debug,
                 });
               }
             });

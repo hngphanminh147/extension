@@ -30,7 +30,6 @@ function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [sourceLang, setSourceLang] = useState(DEFAULT_CONFIG.sourceLang);
   const [targetLang, setTargetLang] = useState(DEFAULT_CONFIG.targetLang);
-  const [ocrDebug, setOcrDebug] = useState(false);
   const [ocrLang, setOcrLang] = useState(DEFAULT_CONFIG.ocrLang);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSubmitRef = useRef<{ text: string; sl: string; tl: string } | null>(null);
@@ -41,21 +40,14 @@ function App() {
         sourceLang: DEFAULT_CONFIG.sourceLang,
         targetLang: DEFAULT_CONFIG.targetLang,
         ocrLang: DEFAULT_CONFIG.ocrLang,
-        ocrDebug: DEFAULT_CONFIG.ocrDebug,
       },
       (stored) => {
         setSourceLang(stored.sourceLang as string);
         setTargetLang(stored.targetLang as string);
         setOcrLang(stored.ocrLang as string);
-        setOcrDebug(stored.ocrDebug as boolean);
       },
     );
   }, []);
-
-  const handleOcrDebugToggle = (checked: boolean) => {
-    setOcrDebug(checked);
-    chrome.storage.local.set({ ocrDebug: checked });
-  };
 
   const handleOcrLangChange = (lang: string) => {
     setOcrLang(lang);
@@ -257,19 +249,6 @@ function App() {
             <Scan size={14} />
             Scan
           </button>
-        </div>
-        <div className="qt-auto-row qt-ocr-debug-row">
-          <label htmlFor="qt-ocr-debug" className="qt-auto-row__label">
-            Show OCR Image
-          </label>
-          <input
-            type="checkbox"
-            id="qt-ocr-debug"
-            role="switch"
-            className="qt-switch"
-            checked={ocrDebug}
-            onChange={(e) => handleOcrDebugToggle(e.target.checked)}
-          />
         </div>
       </div>
     </div>

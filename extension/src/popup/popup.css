@@ -735,9 +735,3 @@
   border-color: var(--primary);
   color: var(--primary-fg);
 }
-
-.qt-ocr-debug-row {
-  border-top: none;
-  padding-top: 0;
-  margin-top: 0;
-}

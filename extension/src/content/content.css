@@ -308,11 +308,15 @@
   display: none;
 }
 
-/* debug meta (confidence%, elapsed) — visible only when ocrDebug is on */
+/* meta (confidence%, elapsed) — toggles with image preview */
 .qt-ocr-result__meta {
   font-size: 11px;
   color: var(--qo-muted);
   margin-top: 6px;
+}
+
+.qt-ocr-result__meta--hidden {
+  display: none;
 }
 
 /* ── Translation section (inserted on demand) ── */
